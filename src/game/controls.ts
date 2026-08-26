@@ -1,11 +1,11 @@
-// Unified input state: keyboard/mouse + touch write into the same InputState
+// Unified input: keyboard/mouse + touch write into the same InputState
 export interface InputState {
-  forward: number;   // -1..1
-  strafe: number;    // -1..1
+  forward: number;
+  strafe: number;
   jump: boolean;
   sneak: boolean;
   sprint: boolean;
-  lookDX: number;    // accumulated look delta (pixels)
+  lookDX: number;
   lookDY: number;
   breakHeld: boolean;
   placeQueued: boolean;
@@ -23,24 +23,41 @@ export class Controls {
   private canvas: HTMLElement;
   onPause: () => void = () => {};
   onHotbar: (i: number) => void = () => {};
+  onHotbarScroll: (dir: number) => void = () => {};
+  onInventory: () => void = () => {};
+  onChat: (prefill: string) => void = () => {};
+  onFlyToggle: () => void = () => {};
+  onDebug: () => void = () => {};
   enabled = false;
+  uiOpen = false; // chat/inventory open — suppress game keys
 
   constructor(canvas: HTMLElement) {
     this.canvas = canvas;
     this.isTouch = 'ontouchstart' in window && navigator.maxTouchPoints > 0;
 
     window.addEventListener('keydown', (e) => {
-      if (!this.enabled) return;
+      if (!this.enabled || this.uiOpen) return;
+      if (e.code === 'Escape') { this.onPause(); return; }
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       this.keys.add(e.code);
-      if (e.code === 'Escape') this.onPause();
       if (e.code.startsWith('Digit')) {
         const n = parseInt(e.code.slice(5), 10);
         if (n >= 1 && n <= 9) this.onHotbar(n - 1);
       }
+      if (e.code === 'KeyE') { this.onInventory(); e.preventDefault(); }
+      if (e.code === 'KeyT' || e.code === 'Slash') { this.onChat(e.code === 'Slash' ? '/' : ''); e.preventDefault(); }
+      if (e.code === 'KeyF') this.onFlyToggle();
+      if (e.code === 'F3') { this.onDebug(); e.preventDefault(); }
       this.syncKeys();
     });
     window.addEventListener('keyup', (e) => { this.keys.delete(e.code); this.syncKeys(); });
     window.addEventListener('blur', () => { this.keys.clear(); this.syncKeys(); });
+
+    canvas.addEventListener('wheel', (e) => {
+      if (!this.enabled) return;
+      this.onHotbarScroll(e.deltaY > 0 ? 1 : -1);
+      e.preventDefault();
+    }, { passive: false });
 
     // Mouse: pointer lock on desktop
     canvas.addEventListener('click', () => {
@@ -59,7 +76,7 @@ export class Controls {
     document.addEventListener('mouseup', (e) => { if (e.button === 0) input.breakHeld = false; });
     document.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    // Touch look: drag on the right side of the screen (HUD joystick occupies left)
+    // Touch look: drag on the canvas (HUD joystick is a separate element)
     let lookId = -1, lastX = 0, lastY = 0;
     let tapStart = 0, tapX = 0, tapY = 0, holdTimer: number | null = null;
     canvas.addEventListener('touchstart', (e) => {
@@ -93,7 +110,7 @@ export class Controls {
           lookId = -1;
           if (holdTimer) {
             clearTimeout(holdTimer); holdTimer = null;
-            if (performance.now() - tapStart < 230) input.placeQueued = true; // short tap = place
+            if (performance.now() - tapStart < 230) input.placeQueued = true;
           }
           input.breakHeld = false;
         }
@@ -110,7 +127,7 @@ export class Controls {
       input.strafe = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
     }
     if (k.has('Space')) input.jump = true; else if (!this.isTouch) input.jump = false;
-    if (!this.isTouch) input.sprint = k.has('ShiftLeft');
-    if (!this.isTouch) input.sneak = k.has('ControlLeft');
+    if (!this.isTouch) input.sprint = k.has('ShiftLeft') || k.has('ShiftRight');
+    if (!this.isTouch) input.sneak = k.has('ControlLeft') || k.has('KeyC');
   }
 }

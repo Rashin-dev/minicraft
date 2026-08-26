@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 
 interface Particle {
-  pos: THREE.Vector3; vel: THREE.Vector3; life: number; color: THREE.Color;
+  pos: THREE.Vector3; vel: THREE.Vector3; life: number; color: THREE.Color; gravity: number;
 }
 
 export class Particles {
@@ -32,11 +32,12 @@ export class Particles {
       if (this.particles.length >= this.max) this.particles.shift();
       const p: Particle = {
         pos: center.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6)),
+        gravity,
         vel: new THREE.Vector3((Math.random() - 0.5) * speed, Math.random() * speed * 0.9 + 1, (Math.random() - 0.5) * speed),
         life: life * (0.6 + Math.random() * 0.6),
         color: c.clone().offsetHSL(0, 0, (Math.random() - 0.5) * 0.12),
       };
-      (p as any).gravity = gravity;
+      p.gravity = gravity;
       this.particles.push(p);
     }
   }
@@ -46,7 +47,7 @@ export class Particles {
     for (const p of this.particles) {
       p.life -= dt;
       if (p.life <= 0) continue;
-      p.vel.y -= ((p as any).gravity ?? 12) * dt;
+      p.vel.y -= p.gravity * dt;
       p.pos.addScaledVector(p.vel, dt);
       this.posAttr.setXYZ(n, p.pos.x, p.pos.y, p.pos.z);
       this.colAttr.setXYZ(n, p.color.r, p.color.g, p.color.b);

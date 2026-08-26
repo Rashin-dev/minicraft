@@ -1,33 +1,30 @@
-// Renders a block icon from the texture atlas
+// Renders a block or item icon from the atlas / procedural item art
 import { useEffect, useRef } from 'react';
-import { BLOCKS, TILES, TILE_SIZE } from '@/game/game';
-import { TILES as ATLAS_TILES } from '@/game/atlas';
+import { BLOCKS, blockDef } from '@/game/blocks';
+import { TILES, TILE_SIZE, ATLAS_COLS } from '@/game/atlas';
+import { itemIcon } from '@/game/items';
 
 export function BlockIcon({ blockId, atlas, size = 40 }: { blockId: number; atlas: HTMLCanvasElement | null; size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const cv = ref.current;
-    if (!cv || !atlas) return;
+    if (!cv) return;
     const ctx = cv.getContext('2d')!;
     ctx.clearRect(0, 0, size, size);
-    const def = BLOCKS[blockId];
-    if (!def) return;
-    void TILES;
-    const tileIdx = ATLAS_TILES[def.side] ?? 0;
-    const sx = (tileIdx % 8) * TILE_SIZE, sy = Math.floor(tileIdx / 8) * TILE_SIZE;
+    if (!blockId) return;
     ctx.imageSmoothingEnabled = false;
-    // simple 3-face isometric-ish: draw top skewed + side
-    const s = size / 16;
-    // side
-    ctx.drawImage(atlas, sx, sy, 16, 16, 0, size * 0.22, size, size * 0.78);
-    // top
-    const topIdx = ATLAS_TILES[def.top] ?? tileIdx;
-    const tx = (topIdx % 8) * TILE_SIZE, ty = Math.floor(topIdx / 8) * TILE_SIZE;
-    ctx.save();
-    ctx.transform(1, -0.28, 0, 0.55, 0, size * 0.12);
-    ctx.drawImage(atlas, tx, ty, 16, 16, 0, 0, size, size * 0.45);
-    ctx.restore();
-    void s;
+    if (blockId < 100) {
+      const def = BLOCKS[blockId];
+      if (!def || !atlas) return;
+      const tileIdx = TILES[def.side] ?? 0;
+      const sx = (tileIdx % ATLAS_COLS) * TILE_SIZE, sy = Math.floor(tileIdx / ATLAS_COLS) * TILE_SIZE;
+      ctx.drawImage(atlas, sx, sy, 16, 16, size * 0.06, size * 0.06, size * 0.88, size * 0.88);
+    } else {
+      const icon = itemIcon(blockId, atlas);
+      if (icon) ctx.drawImage(icon, 0, 0, icon.width, icon.height, 0, 0, size, size);
+    }
   }, [blockId, atlas, size]);
+  const name = blockId ? blockDef(blockId)?.name ?? '' : '';
+  void name;
   return <canvas ref={ref} width={size} height={size} style={{ width: size, height: size, imageRendering: 'pixelated' }} />;
 }
