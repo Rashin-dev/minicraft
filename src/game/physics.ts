@@ -4,18 +4,35 @@ import { BLOCKS, isSolid } from './blocks';
 
 export interface AABB { minX: number; minY: number; minZ: number; maxX: number; maxY: number; maxZ: number; }
 
-// Collision boxes for slab variants; default full cube
+const F16 = 1 / 16;
+// Collision boxes for slab/stairs/fence/door/trapdoor/chest; default full cube
 function blockBoxes(id: number, x: number, y: number, z: number): AABB[] {
   const def = BLOCKS[id];
   if (!def || !def.solid) return [];
-  switch (def.slab) {
-    case 'bottom': return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 0.5, maxZ: z + 1 }];
-    case 'x0': return [{ minX: x, minY: y, minZ: z, maxX: x + 0.5, maxY: y + 1, maxZ: z + 1 }];
-    case 'x1': return [{ minX: x + 0.5, minY: y, minZ: z, maxX: x + 1, maxY: y + 1, maxZ: z + 1 }];
-    case 'z0': return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 1, maxZ: z + 0.5 }];
-    case 'z1': return [{ minX: x, minY: y, minZ: z + 0.5, maxX: x + 1, maxY: y + 1, maxZ: z + 1 }];
-    default: return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 1, maxZ: z + 1 }];
+  if (def.slab) {
+    switch (def.slab) {
+      case 'bottom': return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 0.5, maxZ: z + 1 }];
+      case 'x0': return [{ minX: x, minY: y, minZ: z, maxX: x + 0.5, maxY: y + 1, maxZ: z + 1 }];
+      case 'x1': return [{ minX: x + 0.5, minY: y, minZ: z, maxX: x + 1, maxY: y + 1, maxZ: z + 1 }];
+      case 'z0': return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 1, maxZ: z + 0.5 }];
+      case 'z1': return [{ minX: x, minY: y, minZ: z + 0.5, maxX: x + 1, maxY: y + 1, maxZ: z + 1 }];
+    }
   }
+  const sh = def.shape;
+  if (sh) {
+    if (sh === 'stairs_N') return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 0.5, maxZ: z + 1 }, { minX: x, minY: y + 0.5, minZ: z, maxX: x + 1, maxY: y + 1, maxZ: z + 0.5 }];
+    if (sh === 'stairs_S') return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 0.5, maxZ: z + 1 }, { minX: x, minY: y + 0.5, minZ: z + 0.5, maxX: x + 1, maxY: y + 1, maxZ: z + 1 }];
+    if (sh === 'stairs_E') return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 0.5, maxZ: z + 1 }, { minX: x + 0.5, minY: y + 0.5, minZ: z, maxX: x + 1, maxY: y + 1, maxZ: z + 1 }];
+    if (sh === 'stairs_W') return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 0.5, maxZ: z + 1 }, { minX: x, minY: y + 0.5, minZ: z, maxX: x + 0.5, maxY: y + 1, maxZ: z + 1 }];
+    if (sh === 'fence') return [{ minX: x + 5 * F16, minY: y, minZ: z + 5 * F16, maxX: x + 11 * F16, maxY: y + 1, maxZ: z + 11 * F16 }];
+    if (sh === 'door_N') return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 1, maxZ: z + 3 * F16 }];
+    if (sh === 'door_S') return [{ minX: x, minY: y, minZ: z + 13 * F16, maxX: x + 1, maxY: y + 1, maxZ: z + 1 }];
+    if (sh === 'door_E') return [{ minX: x + 13 * F16, minY: y, minZ: z, maxX: x + 1, maxY: y + 1, maxZ: z + 1 }];
+    if (sh === 'door_W') return [{ minX: x, minY: y, minZ: z, maxX: x + 3 * F16, maxY: y + 1, maxZ: z + 1 }];
+    if (sh === 'trapdoor') return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 3 * F16, maxZ: z + 1 }];
+    if (sh === 'chest') return [{ minX: x + F16, minY: y, minZ: z + F16, maxX: x + 15 * F16, maxY: y + 14 * F16, maxZ: z + 15 * F16 }];
+  }
+  return [{ minX: x, minY: y, minZ: z, maxX: x + 1, maxY: y + 1, maxZ: z + 1 }];
 }
 
 export function collide(

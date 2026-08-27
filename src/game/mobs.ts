@@ -2,11 +2,11 @@
 import * as THREE from 'three';
 import type { World } from './world';
 import { collide } from './physics';
-import { B } from './blocks';
+import { B, IT } from './blocks';
 import { sounds } from './sounds';
 import { isOpaque } from './blocks';
 
-export type MobKind = 'pig' | 'sheep' | 'cow' | 'chicken' | 'zombie' | 'skeleton' | 'creeper';
+export type MobKind = 'pig' | 'sheep' | 'cow' | 'chicken' | 'zombie' | 'skeleton' | 'creeper' | 'villager';
 export const HOSTILE: MobKind[] = ['zombie', 'skeleton', 'creeper'];
 
 export interface MobCallbacks {
@@ -26,6 +26,7 @@ const STYLE: Record<MobKind, { body: number; head: number; leg: number; scale: n
   zombie: { body: 0x3e8948, head: 0x4a9a54, leg: 0x2d5a8a, scale: 0.95, hp: 12, sound: sounds.zombie },
   skeleton: { body: 0xc8c8c8, head: 0xdedede, leg: 0xbcbcbc, scale: 0.95, hp: 10, sound: sounds.skeleton },
   creeper: { body: 0x4fae4f, head: 0x55b957, leg: 0x3d8c3d, scale: 1.0, hp: 10, sound: () => {} },
+  villager: { body: 0x6b4a8a, head: 0xd8b89a, leg: 0x3a2a4a, scale: 1.0, hp: 14, sound: () => {} },
 };
 
 export class Mob {
@@ -49,12 +50,18 @@ export class Mob {
   private fuse = -1; // creeper
   private burnTimer = 0;
   private flashTimer = 0;
+  baby = false;
+  loveTimer = 0;
+  private growTimer = 0;
+  trades: { inId: number; inCount: number; outId: number; outCount: number; done: number }[] = [];
 
-  constructor(kind: MobKind, x: number, y: number, z: number) {
+  constructor(kind: MobKind, x: number, y: number, z: number, baby = false) {
     this.kind = kind;
     this.hostile = HOSTILE.includes(kind);
+    this.baby = baby;
     const s = STYLE[kind];
-    this.hp = s.hp;
+    this.hp = s.hp * (baby ? 0.5 : 1);
+    if (baby) this.growTimer = 45;
     const mat = (c: number) => { const m = new THREE.MeshLambertMaterial({ color: c }); this.mats.push(m); return m; };
     const box = (w: number, h: number, d: number, m: THREE.Material, ox: number, oy: number, oz: number) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w * s.scale, h * s.scale, d * s.scale), m);
@@ -76,6 +83,21 @@ export class Mob {
         const leg = box(0.2 * thin, 0.72, 0.2 * thin, mat(s.leg), lx, 0.36, lz);
         this.legs.push(leg); this.group.add(leg);
       }
+    } else if (kind === 'villager') {
+      this.group.add(box(0.5, 0.66, 0.32, mat(s.body), 0, 0.83, 0)); // robe
+      this.group.add(box(0.46, 0.46, 0.42, mat(s.head), 0, 1.32, 0)); // head
+      this.group.add(box(0.1, 0.14, 0.1, mat(0xb98e6a), 0, 1.3, -0.22)); // nose
+      for (const [lx, lz] of [[-0.12, 0], [0.12, 0]] as const) {
+        const leg = box(0.18, 0.5, 0.18, mat(s.leg), lx, 0.25, lz);
+        this.legs.push(leg); this.group.add(leg);
+      }
+      // villager trades (emerald <-> goods)
+      const r = (n: number) => Math.floor(Math.abs(Math.sin((x * 12.9898 + z * 78.233 + kind.length) * 43758.5453)) * n);
+      this.trades = [
+        { inId: IT.WHEAT, inCount: 18 + r(6), outId: IT.EMERALD, outCount: 1, done: 0 },
+        { inId: IT.EMERALD, inCount: 2 + r(2), outId: IT.APPLE, outCount: 5, done: 0 },
+        { inId: IT.EMERALD, inCount: 4 + r(4), outId: IT.BREAD, outCount: 6, done: 0 },
+      ];
     } else if (kind === 'creeper') {
       this.group.add(box(0.5, 0.9, 0.32, mat(s.body), 0, 0.85, 0));
       this.group.add(box(0.48, 0.48, 0.48, mat(s.head), 0, 1.52, 0));
@@ -100,6 +122,7 @@ export class Mob {
       }
     }
     this.group.position.set(x, y, z);
+    if (baby) this.group.scale.setScalar(0.55);
   }
 
   private flash() { this.flashTimer = 0.18; for (const m of this.mats) m.emissive.setHex(0xaa2222); }
@@ -126,6 +149,11 @@ export class Mob {
     const distToPlayer = p.distanceTo(playerPos);
     this.soundTimer -= dt;
     this.attackCd -= dt;
+    if (this.loveTimer > 0) this.loveTimer -= dt;
+    if (this.baby) {
+      this.growTimer -= dt;
+      if (this.growTimer <= 0) { this.baby = false; this.group.scale.setScalar(1); this.hp = STYLE[this.kind].hp; }
+    }
 
     if (this.flashTimer > 0) {
       this.flashTimer -= dt;

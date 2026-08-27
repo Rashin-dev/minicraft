@@ -166,6 +166,68 @@ export function meshChunk(
     }
   };
 
+  const addLadder = (x: number, y: number, z: number, dir: string) => {
+    const [u0, v0, u1, v1] = uvFor(T['ladder']);
+    const sky = lightAt(x, y, z, 0), r = lightAt(x, y, z, 1), g = lightAt(x, y, z, 2), b2 = lightAt(x, y, z, 3);
+    let pts: [number, number, number][];
+    if (dir === 'ladder_N') pts = [[0, 0, 0.06], [1, 0, 0.06], [0, 1, 0.06], [1, 1, 0.06]];
+    else if (dir === 'ladder_S') pts = [[0, 0, 0.94], [1, 0, 0.94], [0, 1, 0.94], [1, 1, 0.94]];
+    else if (dir === 'ladder_E') pts = [[0.94, 0, 0], [0.94, 0, 1], [0.94, 1, 0], [0.94, 1, 1]];
+    else pts = [[0.06, 0, 0], [0.06, 0, 1], [0.06, 1, 0], [0.06, 1, 1]];
+    let uvs: [number, number][];
+    if (dir.endsWith('_N') || dir.endsWith('_S')) uvs = [[u0, v0], [u1, v0], [u0, v1], [u1, v1]];
+    else uvs = [[u1, v0], [u1, v1], [u0, v0], [u0, v1]];
+    const base = tr.pos.length / 3;
+    for (let ci = 0; ci < 4; ci++) {
+      tr.pos.push(x + pts[ci][0], y + pts[ci][1], z + pts[ci][2]);
+      tr.uv.push(uvs[ci][0], uvs[ci][1]);
+      tr.light.push(sky, r, g, b2); tr.ao.push(255); tr.wind.push(0);
+    }
+    tr.idx.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
+  };
+
+  const isConnectable = (nid: number): boolean => nid === B.FENCE || (blockDef(nid)?.solid ?? false);
+
+  const shapes = (lx: number, y: number, lz: number, def: ReturnType<typeof blockDef>): { min: [number, number, number]; max: [number, number, number] }[] => {
+    const box = (a: number[], b: number[]): { min: [number, number, number]; max: [number, number, number] } => ({ min: [a[0], a[1], a[2]] as [number, number, number], max: [b[0], b[1], b[2]] as [number, number, number] });
+    const sh = def?.shape;
+    if (!sh) return [box([0,0,0],[1,1,1])];
+    if (sh === 'stairs_N') return [box([0,0,0],[1,0.5,1]), box([0,0.5,0],[1,1,0.5])];
+    if (sh === 'stairs_S') return [box([0,0,0],[1,0.5,1]), box([0,0.5,0.5],[1,1,1])];
+    if (sh === 'stairs_E') return [box([0,0,0],[1,0.5,1]), box([0.5,0.5,0],[1,1,1])];
+    if (sh === 'stairs_W') return [box([0,0,0],[1,0.5,1]), box([0,0.5,0],[0.5,1,1])];
+    if (sh === 'fence') {
+      const boxes = [box([6 / 16, 0, 6 / 16], [10 / 16, 1, 10 / 16])];
+      if (isConnectable(get(lx + 1, y, lz))) boxes.push(box([10 / 16, 0, 7 / 16], [1, 1, 9 / 16]));
+      if (isConnectable(get(lx - 1, y, lz))) boxes.push(box([0, 0, 7 / 16], [6 / 16, 1, 9 / 16]));
+      if (isConnectable(get(lx, y, lz + 1))) boxes.push(box([7 / 16, 0, 10 / 16], [9 / 16, 1, 1]));
+      if (isConnectable(get(lx, y, lz - 1))) boxes.push(box([7 / 16, 0, 0], [9 / 16, 1, 6 / 16]));
+      return boxes;
+    }
+    const doorGeom = (f: string) => f === 'N' ? [box([0, 0, 0], [1, 1, 3 / 16])]
+      : f === 'S' ? [box([0, 0, 13 / 16], [1, 1, 1])]
+        : f === 'E' ? [box([13 / 16, 0, 0], [1, 1, 1])]
+          : [box([0, 0, 0], [3 / 16, 1, 1])];
+    if (sh === 'door_N' || sh === 'door_open_N') return doorGeom('N');
+    if (sh === 'door_S' || sh === 'door_open_S') return doorGeom('S');
+    if (sh === 'door_E' || sh === 'door_open_E') return doorGeom('E');
+    if (sh === 'door_W' || sh === 'door_open_W') return doorGeom('W');
+    if (sh === 'door_U') {
+      const b = get(lx, y - 1, lz);
+      const f = b === B.DOOR_L_N ? 'N' : b === B.DOOR_L_E ? 'E' : b === B.DOOR_L_S ? 'S' : b === B.DOOR_L_W ? 'W' : 'N';
+      return doorGeom(f);
+    }
+    if (sh === 'door_open_U') {
+      const b = get(lx, y - 1, lz);
+      const f = b === B.DOOR_OPEN_L_N ? 'N' : b === B.DOOR_OPEN_L_E ? 'E' : b === B.DOOR_OPEN_L_S ? 'S' : b === B.DOOR_OPEN_L_W ? 'W' : 'N';
+      return doorGeom(f);
+    }
+    if (sh === 'trapdoor') return [box([0,0,0],[1,3/16,1])];
+    if (sh === 'trapdoor_open') return [box([0,0,0],[1,1,3/16])];
+    if (sh === 'chest') return [box([1/16,0,1/16],[15/16,14/16,15/16])];
+    return [box([0,0,0],[1,1,1])];
+  };
+
   for (let lz = 0; lz < CHUNK; lz++) for (let lx = 0; lx < CHUNK; lx++) {
     for (let y = 0; y < WORLD_H; y++) {
       const id = get(lx, y, lz);
@@ -173,6 +235,8 @@ export function meshChunk(
       const def = blockDef(id);
       if (!def) continue;
       if (def.cross) { addCross(lx, y, lz, id); continue; }
+      if (def.shape === 'crop') { addCross(lx, y, lz, id); continue; }
+      if (def.shape?.startsWith('ladder')) { addLadder(lx, y, lz, def.shape); continue; }
       if (def.liquid) {
         // water buffer (lava handled as emissive opaque below)
         if (id === B.WATER) {
@@ -245,9 +309,28 @@ export function meshChunk(
       else if (def.slab === 'z0') max = [1, 1, 0.5];
       else if (def.slab === 'z1') min = [0, 0, 0.5];
       const buf = def.transparent ? tr : op;
-      for (const face of FACES) {
-        const tileName = face.kind === 'top' ? def.top : face.kind === 'bottom' ? (def.bottom ?? def.side) : def.side;
-        pushFace(buf, lx, y, lz, min, max, face, tileName, def, false);
+      if (def.slab) {
+        for (const face of FACES) {
+          let tileName = def.side;
+          if (face.kind === 'top') tileName = def.top;
+          else if (face.kind === 'bottom') tileName = def.bottom ?? def.side;
+          else if (face.dir[2] === -1) tileName = def.front ?? def.side;
+          else if (face.dir[2] === 1) tileName = def.xm ?? def.side;
+          pushFace(buf, lx, y, lz, min, max, face, tileName, def, false);
+        }
+      } else {
+        const boxes = shapes(lx, y, lz, def);
+        for (const box of boxes) {
+          const sub = box.min.some((v) => v > 0) || box.max.some((v) => v < 1);
+          for (const face of FACES) {
+            let tileName = def.side;
+            if (face.kind === 'top') tileName = def.top;
+            else if (face.kind === 'bottom') tileName = def.bottom ?? def.side;
+            else if (face.dir[2] === -1) tileName = def.front ?? def.side;
+            else if (face.dir[2] === 1) tileName = def.xm ?? def.side;
+            pushFace(buf, lx, y, lz, box.min, box.max, face, tileName, def, sub);
+          }
+        }
       }
     }
   }

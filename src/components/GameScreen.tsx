@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Game } from '@/game/game';
 import { input } from '@/game/controls';
-import { itemName } from '@/game/blocks';
+import { itemName, itemDef } from '@/game/blocks';
 import { CREATIVE_BLOCKS, CREATIVE_ITEMS } from '@/game/blocks';
 import { BlockIcon } from './HotbarIcon';
 import { Joystick } from './Joystick';
@@ -65,6 +65,12 @@ export function GameScreen({ worldName, seed, mode, saved, onExit }: Props) {
   const [mcpConnected, setMcpConnected] = useState(false);
   const [aiTab, setAiTab] = useState<'presets' | 'connect'>('presets');
   const [invPick, setInvPick] = useState<InvPick | null>(null);
+  const [container, setContainer] = useState<{ type: 'chest' | 'furnace'; key: string } | null>(null);
+  const [cursor, setCursor] = useState<{ id: number; count: number } | null>(null);
+  const [bowCharge, setBowCharge] = useState(0);
+  const [tradeOpen, setTradeOpen] = useState(false);
+  const [canTrade, setCanTrade] = useState(false);
+  const [sneaking, setSneaking] = useState(false);
   const isTouch = 'ontouchstart' in window && navigator.maxTouchPoints > 0;
   const chatIdRef = useRef(0);
 
@@ -83,6 +89,8 @@ export function GameScreen({ worldName, seed, mode, saved, onExit }: Props) {
       onChat: (msg, kind) => addChat(msg, kind),
       onChatOpen: (prefill) => { setChatPrefill(prefill); setChatOpen(true); window.setTimeout(() => chatInputRef.current?.focus(), 30); },
       onHealth: (hp, hu, air2) => { setHealth(hp); setHunger(hu); setAir(air2); },
+      onBow: (c) => setBowCharge(c),
+      onContainer: (c) => setContainer(c),
       onDeath: () => setDead(true),
       onModeChange: (m) => setGameMode(m),
       onInventory: () => setShowInv((v) => !v),
@@ -130,6 +138,48 @@ export function GameScreen({ worldName, seed, mode, saved, onExit }: Props) {
   }, [sleeping]);
 
   const resume = useCallback(() => setPaused(false), []);
+
+  // poller for villager trading proximity
+  useEffect(() => {
+    if (gameMode !== 'survival' || !ready || tradeOpen) return;
+    const t = window.setInterval(() => setCanTrade(!!gameRef.current?.nearestVillager()), 600);
+    return () => window.clearInterval(t);
+  }, [gameMode, ready, tradeOpen]);
+
+  const closeContainer = () => { gameRef.current?.closeContainer(); setContainer(null); setCursor(null); };
+  const chestClick = (slot: number) => {
+    const g = gameRef.current; if (!g || !container) return;
+    const arr = g.openChestSlots(); if (!arr) return;
+    const cur = arr[slot];
+    if (cursor) { arr[slot] = { id: cursor.id, count: cursor.count }; setCursor(cur ? { id: cur.id, count: cur.count } : null); }
+    else if (cur) { setCursor({ id: cur.id, count: cur.count }); arr[slot] = null; }
+    g.inventory.onChange();
+  };
+  const furnaceClick = (which: 'input' | 'fuel' | 'output') => {
+    const g = gameRef.current; if (!g || !container) return;
+    const st = g.openFurnaceState(); if (!st) return;
+    if (which === 'output') { if (st.output) { g.inventory.add(st.output.id, st.output.count); st.output = null; g.inventory.onChange(); } return; }
+    const cur = st[which];
+    if (cursor) { st[which] = { id: cursor.id, count: cursor.count }; setCursor(cur ? { id: cur.id, count: cur.count } : null); }
+    else if (cur) { setCursor({ id: cur.id, count: cur.count }); st[which] = null; }
+    g.inventory.onChange();
+  };
+  const armorClick = (aSlot: number) => {
+    const g = gameRef.current; if (!g) return;
+    const inv = g.inventory; const worn = inv.armor[aSlot];
+    if (cursor) { const d = itemDef(cursor.id); if (d && d.armor && d.armor.slot === aSlot) { inv.armor[aSlot] = { id: cursor.id, count: 1 }; setCursor(worn ? { id: worn.id, count: 1 } : null); inv.onChange(); } return; }
+    if (worn) { if (inv.add(worn.id, 1)) { inv.armor[aSlot] = null; inv.onChange(); } }
+  };
+  const backpackClick = (i: number) => {
+    const g = gameRef.current; if (!g) return;
+    const inv = g.inventory; const s = inv.slots[i];
+    if (cursor) { const prev = inv.slots[i]; inv.slots[i] = { id: cursor.id, count: cursor.count }; setCursor(prev ? { id: prev.id, count: prev.count } : null); inv.onChange(); return; }
+    if (!s) return;
+    const d = itemDef(s.id);
+    if (d && d.armor) { inv.armor[d.armor.slot] = { id: s.id, count: 1 }; inv.slots[i] = null; inv.onChange(); return; }
+    setInvPick({ from: i, id: s.id });
+  };
+
   const sendChat = useCallback(() => {
     const text = chatInputRef.current?.value.trim();
     if (text && gameRef.current) {
@@ -184,6 +234,14 @@ export function GameScreen({ worldName, seed, mode, saved, onExit }: Props) {
       {target.name && (
         <div className="pointer-events-none absolute left-1/2 top-[58%] -translate-x-1/2 rounded bg-black/50 px-3 py-1 text-sm text-white">
           {target.name}
+        </div>
+      )}
+
+      {bowCharge > 0 && (
+        <div className="pointer-events-none absolute left-1/2 top-[62%] -translate-x-1/2">
+          <div className="h-1.5 w-28 overflow-hidden rounded bg-black/50">
+            <div className="h-full bg-amber-400" style={{ width: `${bowCharge * 100}%` }} />
+          </div>
         </div>
       )}
 
@@ -304,6 +362,19 @@ export function GameScreen({ worldName, seed, mode, saved, onExit }: Props) {
               onTouchStart={(e) => { e.stopPropagation(); if (gameRef.current) { gameRef.current.toggleFly(); setFlying(gameRef.current.flying); } }}
             >🕊</button>
             <button
+              className={`pointer-events-auto h-12 w-12 rounded-full border-2 text-lg ${sneaking ? 'border-white bg-white/30' : 'border-white/30 bg-black/40'} text-white`}
+              onTouchStart={(e) => { e.stopPropagation(); }}
+              onClick={(e) => { e.stopPropagation(); input.sneak = !sneaking; setSneaking(!sneaking); }}
+            >🤫</button>
+            <button
+              className="pointer-events-auto h-12 w-12 rounded-full border-2 border-white/30 bg-black/40 text-lg text-white"
+              onClick={(e) => { e.stopPropagation(); input.togglePerspective = true; }}
+            >👁</button>
+            <button
+              className="pointer-events-auto h-12 w-12 rounded-full border-2 border-white/30 bg-black/40 text-lg text-white"
+              onClick={(e) => { e.stopPropagation(); input.dropItem = true; }}
+            >⬇</button>
+            <button
               className="pointer-events-auto h-16 w-16 rounded-full border-2 border-white/40 bg-black/40 text-2xl text-white active:bg-white/30"
               onTouchStart={(e) => { e.stopPropagation(); input.jump = true; }}
               onTouchEnd={(e) => { e.stopPropagation(); input.jump = false; }}
@@ -312,7 +383,16 @@ export function GameScreen({ worldName, seed, mode, saved, onExit }: Props) {
               className="pointer-events-auto h-14 w-14 rounded-full border-2 border-white/30 bg-black/40 text-xl text-white active:bg-white/30"
               onTouchStart={(e) => { e.stopPropagation(); input.placeQueued = true; }}
             >🧱</button>
+            <button
+              className="pointer-events-auto h-14 w-14 rounded-full border-2 border-amber-400/60 bg-black/40 text-xl text-white active:bg-amber-400/30"
+              onTouchStart={(e) => { e.stopPropagation(); input.placeHeld = true; }}
+              onTouchEnd={(e) => { e.stopPropagation(); input.placeHeld = false; }}
+            >🏹</button>
           </div>
+          {canTrade && (
+            <button className="pointer-events-auto absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full border-2 border-emerald-300 bg-emerald-900/60 px-4 py-2 text-sm text-white"
+              onClick={() => setTradeOpen(true)}>🧑‍🌾 Trade</button>
+          )}
         </>
       )}
 
@@ -380,15 +460,25 @@ export function GameScreen({ worldName, seed, mode, saved, onExit }: Props) {
 
             {survival && invTab === 'inventory' && (
               <>
-                <h3 className="mb-2 text-center text-sm text-white/70">Inventory — tap item, then tap hotbar slot below</h3>
+                <h3 className="mb-2 text-center text-sm text-white/70">Inventory — tap to move</h3>
+                {/* armor */}
+                <div className="mb-2 flex justify-center gap-2">
+                  {[3, 2, 1, 0].map((a) => {
+                    const worn = game?.inventory.armor[a] ?? null;
+                    const labels = ['Boots', 'Legs', 'Chest', 'Helm'];
+                    return (
+                      <button key={a} title={labels[a]}
+                        className={`flex h-10 w-10 items-center justify-center rounded border ${worn ? 'border-amber-300 bg-white/10' : 'border-white/10 bg-black/30'}`}
+                        onClick={() => { armorClick(a); sounds.click(); }}>
+                        {worn && <BlockIcon blockId={worn.id} atlas={atlas} size={26} />}
+                      </button>
+                    );
+                  })}
+                </div>
                 <div className="grid grid-cols-9 gap-1" key={invVersion}>
                   {game?.inventory.slots.slice(9).map((s, i) => (
                     <button key={i} className={`flex h-10 w-10 items-center justify-center rounded border ${s ? 'border-white/30 bg-white/10' : 'border-white/10 bg-black/30'}`}
-                      onClick={() => {
-                        if (!s) return;
-                        setInvPick({ from: i + 9, id: s.id });
-                        sounds.click();
-                      }}>
+                      onClick={() => { backpackClick(i + 9); sounds.click(); }}>
                       {s && <BlockIcon blockId={s.id} atlas={atlas} size={30} />}
                     </button>
                   ))}
@@ -448,6 +538,83 @@ export function GameScreen({ worldName, seed, mode, saved, onExit }: Props) {
             )}
 
             <button className="mt-3 w-full rounded-lg bg-white/10 py-2 text-sm text-white" onClick={() => setShowInv(false)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* chest / furnace */}
+      {container && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-4" onClick={closeContainer}>
+          <div className="rounded-2xl bg-zinc-900/95 p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="text-sm font-bold text-white">{container.type === 'chest' ? 'Chest' : 'Furnace'}</div>
+            </div>
+            {container.type === 'chest' ? (
+              <div className="grid grid-cols-9 gap-1">
+                {(game?.openChestSlots() ?? []).map((s, i) => (
+                  <button key={i} className={`relative flex h-10 w-10 items-center justify-center rounded border ${s ? 'border-white/30 bg-white/10' : 'border-white/10 bg-black/30'}`}
+                    onClick={() => chestClick(i)}>
+                    {s && <BlockIcon blockId={s.id} atlas={atlas} size={30} />}
+                    {s && s.count > 1 && <span className="absolute bottom-0 right-0.5 text-[10px] font-bold text-white" style={{ textShadow: '1px 1px 0 #000' }}>{s.count}</span>}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-col items-center gap-1">
+                    <button className={`flex h-12 w-12 items-center justify-center rounded border ${game?.openFurnaceState()?.input ? 'border-white/30 bg-white/10' : 'border-white/10 bg-black/30'}`} onClick={() => furnaceClick('input')}>
+                      {game?.openFurnaceState()?.input && <BlockIcon blockId={game.openFurnaceState()!.input!.id} atlas={atlas} size={34} />}
+                    </button>
+                    <span className="text-[10px] text-white/50">In</span>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="h-8 w-2 overflow-hidden rounded bg-black/40">
+                      <div className="w-full bg-orange-400" style={{ height: `${Math.min(1, (game?.openFurnaceState()?.progress ?? 0) / 10) * 100}%` }} />
+                    </div>
+                    <span className="mt-1 text-lg">→</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <button className={`flex h-12 w-12 items-center justify-center rounded border ${game?.openFurnaceState()?.output ? 'border-white/30 bg-white/10' : 'border-white/10 bg-black/30'}`} onClick={() => furnaceClick('output')}>
+                      {game?.openFurnaceState()?.output && <BlockIcon blockId={game.openFurnaceState()!.output!.id} atlas={atlas} size={34} />}
+                    </button>
+                    <span className="text-[10px] text-white/50">Out</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button className={`flex h-12 w-12 items-center justify-center rounded border ${game?.openFurnaceState()?.fuel ? 'border-white/30 bg-white/10' : 'border-white/10 bg-black/30'}`} onClick={() => furnaceClick('fuel')}>
+                    {game?.openFurnaceState()?.fuel && <BlockIcon blockId={game.openFurnaceState()!.fuel!.id} atlas={atlas} size={34} />}
+                  </button>
+                  <span className="text-[10px] text-white/50">Fuel</span>
+                </div>
+              </div>
+            )}
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <div className="text-xs text-white/60">Held: {cursor ? `${cursor.count}× ${itemName(cursor.id)}` : '—'}</div>
+              <button className="rounded-lg bg-white/10 px-4 py-2 text-sm text-white" onClick={closeContainer}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* villager trade */}
+      {tradeOpen && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-4" onClick={() => setTradeOpen(false)}>
+          <div className="max-h-[80vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-zinc-900/95 p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 text-sm font-bold text-white">🧑‍🌾 Villager Trades</div>
+            {game?.nearestVillager()?.trades.map((t, i) => (
+              <div key={i} className="mb-1.5 flex items-center gap-2 rounded-lg bg-white/5 px-2 py-1.5">
+                <BlockIcon blockId={t.inId} atlas={atlas} size={28} />
+                <span className="text-xs text-white">{t.inCount}×</span>
+                <span className="text-white/40">→</span>
+                <BlockIcon blockId={t.outId} atlas={atlas} size={28} />
+                <span className="text-xs text-white">{t.outCount}×</span>
+                <span className="ml-auto text-[10px] text-white/40">{t.done}/12</span>
+                <button className="rounded bg-green-600 px-2 py-1 text-xs font-bold text-white"
+                  onClick={() => { gameRef.current?.buyTrade(i); sounds.pop(); }}>Trade</button>
+              </div>
+            ))}
+            <button className="mt-2 w-full rounded-lg bg-white/10 py-2 text-sm text-white" onClick={() => setTradeOpen(false)}>Close</button>
           </div>
         </div>
       )}

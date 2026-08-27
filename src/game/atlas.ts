@@ -1,7 +1,7 @@
 // Procedurally generated 16x16 texture atlas (pixel-art, worker-safe: no DOM at import)
 export const TILE_SIZE = 16;
 export const ATLAS_COLS = 8;
-export const ATLAS_ROWS = 9;
+export const ATLAS_ROWS = 10;
 
 import { mulberry32 } from './noise';
 
@@ -330,6 +330,81 @@ tile('bed_side', (c, x, y) => {
   noiseFill(c, x, y, [168, 136, 82], 16);
   c.fillStyle = 'rgb(178,44,44)'; c.fillRect(x, y, 16, 6);
   c.fillStyle = 'rgb(240,240,240)'; c.fillRect(x, y, 16, 2);
+});
+
+
+tile('sandstone_top', (c, x, y) => {
+  noiseFill(c, x, y, [222, 212, 164], 16);
+  for (let i = 0; i < 8; i++) px(c, x, y, Math.floor(rnd()*16), Math.floor(rnd()*16), shade([205,195,148], 18));
+});
+tile('chest_side', (c, x, y) => {
+  noiseFill(c, x, y, [150, 100, 54], 20);
+  c.fillStyle = 'rgb(110,70,38)';
+  c.fillRect(x, y, 16, 1); c.fillRect(x, y+15, 16, 1); c.fillRect(x, y, 1, 16); c.fillRect(x+15, y, 1, 16);
+  for (let j = 4; j < 16; j += 5) c.fillRect(x+1, y+j, 14, 1);
+});
+tile('chest_top', (c, x, y) => {
+  noiseFill(c, x, y, [150, 100, 54], 20);
+  c.fillStyle = 'rgb(110,70,38)'; c.strokeRect(x+0.5, y+0.5, 15, 15);
+});
+tile('chest_front', (c, x, y) => {
+  noiseFill(c, x, y, [150, 100, 54], 20);
+  c.fillStyle = 'rgb(110,70,38)';
+  c.fillRect(x, y, 16, 1); c.fillRect(x, y+15, 16, 1); c.fillRect(x, y, 1, 16); c.fillRect(x+15, y, 1, 16);
+  for (let j = 4; j < 16; j += 5) c.fillRect(x+1, y+j, 14, 1);
+  c.fillStyle = 'rgb(80,50,28)'; c.fillRect(x+7, y+9, 2, 4);
+});
+tile('furnace_top', (c, x, y) => {
+  noiseFill(c, x, y, [120, 120, 120], 24);
+  c.fillStyle = 'rgb(88,88,88)'; c.strokeRect(x+1.5, y+1.5, 13, 13);
+});
+tile('furnace_side', (c, x, y) => {
+  noiseFill(c, x, y, [120, 120, 120], 24);
+  c.fillStyle = 'rgb(88,88,88)'; c.strokeRect(x+1.5, y+1.5, 13, 13);
+});
+tile('furnace_front', (c, x, y) => {
+  noiseFill(c, x, y, [120, 120, 120], 24);
+  c.fillStyle = 'rgb(60,60,60)'; c.fillRect(x+3, y+3, 10, 10);
+  c.fillStyle = 'rgb(40,40,40)'; c.fillRect(x+5, y+7, 6, 5);
+});
+tile('furnace_front_lit', (c, x, y) => {
+  noiseFill(c, x, y, [120, 120, 120], 24);
+  c.fillStyle = 'rgb(30,20,12)'; c.fillRect(x+3, y+3, 10, 10);
+  for (let i = 0; i < 22; i++) { const fx = x+4+Math.floor(rnd()*8), fy = y+8+Math.floor(rnd()*4); px(c, x, y, fx-x, fy-y, rnd()<0.5?'rgb(255,170,40)':'rgb(255,110,20)'); }
+});
+tile('ladder', (c, x, y) => {
+  c.fillStyle = 'rgb(96,70,40)'; c.fillRect(x, y, 16, 16);
+  c.fillStyle = 'rgb(150,110,62)';
+  c.fillRect(x+2, y, 2, 16); c.fillRect(x+12, y, 2, 16);
+  for (let j = 2; j < 16; j += 5) c.fillRect(x+2, y+j, 12, 2);
+});
+tile('farmland', (c, x, y) => {
+  noiseFill(c, x, y, [120, 82, 52], 22);
+  c.fillStyle = 'rgb(90,60,38)';
+  for (let i = 0; i < 16; i += 4) { c.fillRect(x+i, y, 3, 16); c.fillRect(x, y+i, 16, 3); }
+});
+tile('wheat', (c, x, y) => {
+  c.clearRect(x, y, 16, 16);
+  c.strokeStyle = 'rgb(70,120,40)';
+  for (const lx of [5, 11]) { c.beginPath(); c.moveTo(x+lx, y+15); c.lineTo(x+lx, y+4); c.stroke(); }
+  c.fillStyle = 'rgb(200,170,60)';
+  for (const lx of [5, 11]) { c.fillRect(x+lx-1, y+3, 3, 4); c.fillRect(x+lx-2, y+5, 5, 1); }
+});
+tile('trapdoor', (c, x, y) => {
+  noiseFill(c, x, y, [150, 100, 54], 18);
+  c.fillStyle = 'rgb(110,70,38)'; c.strokeRect(x+1.5, y+1.5, 13, 13);
+  for (let i = 0; i < 16; i += 4) c.fillRect(x+i, y, 1, 16);
+});
+tile('door_lower', (c, x, y) => {
+  noiseFill(c, x, y, [150, 100, 54], 16);
+  c.fillStyle = 'rgb(110,70,38)';
+  for (let j = 0; j < 16; j += 4) c.fillRect(x+1, y+j, 14, 1);
+  c.fillStyle = 'rgb(90,60,34)'; c.fillRect(x+13, y+7, 1, 3);
+});
+tile('door_upper', (c, x, y) => {
+  noiseFill(c, x, y, [150, 100, 54], 16);
+  c.fillStyle = 'rgb(110,70,38)';
+  for (let j = 0; j < 16; j += 4) c.fillRect(x+1, y+j, 14, 1);
 });
 
 export function buildAtlas(): { texture: HTMLCanvasElement; uvFor: (tileIdx: number) => [number, number, number, number] } {

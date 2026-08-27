@@ -167,7 +167,59 @@ export function generateChunk(seed: number, cx: number, cz: number): Uint8Array 
     else if (r < 0.09) set(lx, surfaceY, lz, B.TALLGRASS);
   }
 
+  // ----- villages -----
+  const VREGION = 14;
+  const rcx = Math.floor(cx / VREGION), rcz = Math.floor(cz / VREGION);
+  if (hash2(rcx, rcz, seed + 717) < 0.16) {
+    const ccxp = rcx * VREGION * CHUNK + 8, cczp = rcz * VREGION * CHUNK + 8;
+    const houseOffsets = [[0, 0], [-9, -9], [9, -9], [-9, 9], [9, 9]];
+    for (const [ox, oz] of houseOffsets) {
+      const hx = ccxp + ox, hz = cczp + oz;
+      const surfaceY = heightAt(hx, hz, seed) + 1;
+      if (surfaceY <= SEA) continue;
+      for (let lz = -6; lz < CHUNK + 6; lz++) for (let lx = -6; lx < CHUNK + 6; lx++) {
+        const x = cx * CHUNK + lx, z = cz * CHUNK + lz;
+        const inChunk = lx >= 0 && lx < CHUNK && lz >= 0 && lz < CHUNK;
+        if (!inChunk) continue;
+        const dxw = x - hx, dzw = z - hz;
+        if (Math.abs(dxw) > 2 || Math.abs(dzw) > 2) continue;
+        // floor
+        set(lx, surfaceY, lz, B.PLANKS);
+        const edge = Math.abs(dxw) === 2 || Math.abs(dzw) === 2;
+        if (edge) {
+          set(lx, surfaceY + 1, lz, B.PLANKS);
+          set(lx, surfaceY + 2, lz, B.PLANKS);
+          if (Math.abs(dxw) === 2 && Math.abs(dzw) === 2) set(lx, surfaceY + 3, lz, B.COBBLE);
+        }
+        if (dxw === 0 && dzw === 2) { // south door
+          set(lx, surfaceY + 1, lz, B.DOOR_L_S);
+          set(lx, surfaceY + 2, lz, B.DOOR_U);
+        }
+        if (dxw === 0 && dzw === 0) { set(lx, surfaceY + 3, lz, B.LANTERN); set(lx, surfaceY + 1, lz, B.CHEST); }
+        if (Math.abs(dxw) <= 2 && Math.abs(dzw) <= 2 && !edge && !(dxw === 0 && dzw === 2)) set(lx, surfaceY + 4, lz, B.PLANKS); // roof
+      }
+    }
+    // a little farm
+    for (let lz = -6; lz < CHUNK + 6; lz++) for (let lx = -6; lx < CHUNK + 6; lx++) {
+      const x = cx * CHUNK + lx, z = cz * CHUNK + lz;
+      const inChunk = lx >= 0 && lx < CHUNK && lz >= 0 && lz < CHUNK;
+      if (!inChunk) continue;
+      const dxw = x - (ccxp + 3), dzw = z - (cczp + 3);
+      if (dxw >= 0 && dxw < 4 && dzw >= 0 && dzw < 4) {
+        const sy = heightAt(x, z, seed) + 1;
+        set(lx, sy, lz, B.FARMLAND);
+        set(lx, sy + 1, lz, dxw === 0 && dzw === 0 ? B.WHEAT_MATURE : B.WHEAT_YOUNG);
+      }
+    }
+  }
+
   return data;
+}
+
+export function villageCenterChunk(cx: number, cz: number, seed: number): { cx: number; cz: number } | null {
+  const VREGION = 14;
+  const rcx = Math.floor(cx / VREGION), rcz = Math.floor(cz / VREGION);
+  return hash2(rcx, rcz, seed + 717) < 0.16 ? { cx: rcx, cz: rcz } : null;
 }
 
 function desertish(biome: BiomeId): boolean { return biome === 'desert'; }

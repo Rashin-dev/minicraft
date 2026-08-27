@@ -1,8 +1,9 @@
 // MiniCraft core engine — world streaming, player, sky, weather, mobs, AI architect
 import * as THREE from 'three';
 import { World, CHUNK, WORLD_H, SEA } from './world';
+import { villageCenterChunk } from './terrain';
 import { Controls, input } from './controls';
-import { B, IT, blockDef, itemDef, isSolid, itemName, HOTBAR_DEFAULT } from './blocks';
+import { B, IT, blockDef, itemDef, isSolid, isClimbable, isDoorOpen, itemName, HOTBAR_DEFAULT } from './blocks';
 import { buildAtlas, TILES, TILE_SIZE, ATLAS_COLS, ATLAS_ROWS } from './atlas';
 import { makeChunkMaterials } from './chunkMaterial';
 import { SkySystem } from './sky';
@@ -16,7 +17,7 @@ import { sounds, setMusic } from './sounds';
 import { saveWorld } from './save';
 import type { WorldSave } from './save';
 import { mulberry32 } from './noise';
-import { Inventory, RECIPES, itemIcon } from './items';
+import { Inventory, RECIPES, itemIcon, SMELT, FUEL } from './items';
 import { parseBuild, planToBlocks } from './builder';
 import type { BuildOp } from './builder';
 import { sanitizePlan, requestPlanFromAI } from './aiBridge';
@@ -35,9 +36,11 @@ export interface GameEvents {
   onChat: (msg: string, kind: 'system' | 'player' | 'ai') => void;
   onChatOpen: (prefill: string) => void;
   onHealth: (hp: number, hunger: number, air: number) => void;
+  onBow: (charge: number) => void;
   onDeath: () => void;
   onModeChange: (mode: 'creative' | 'survival') => void;
   onInventory: () => void;
+  onContainer: (c: { type: 'chest' | 'furnace'; key: string }) => void;
   onSleep: () => void;
   onLoading: (progress: number) => void;
   onBuildProgress: (name: string, done: number, total: number) => void;
@@ -128,6 +131,53 @@ export class Game {
   minimapCanvas: HTMLCanvasElement | null = null;
   private minimapTimer = 0;
   onHotbarChange: () => void = () => {};
+
+  // containers & dropped items
+  private chests = new Map<string, (null | { id: number; count: number })[]>();
+  private furnaces = new Map<string, { input: (null | { id: number; count: number }); fuel: (null | { id: number; count: number }); output: (null | { id: number; count: number }); progress: number; burn: number; burnMax: number; lit: boolean }>();
+  private crops = new Map<string, number>(); // "x,y,z" -> planted elapsed-fraction
+  private dropped: { id: number; count: number; pos: THREE.Vector3; vel: THREE.Vector3; mesh: THREE.Mesh; age: number; dead?: boolean }[] = [];
+  openContainer: { type: 'chest' | 'furnace'; key: string } | null = null;
+  openChestSlots(): (null | { id: number; count: number })[] | null {
+    if (!this.openContainer) return null;
+    if (this.openContainer.type === 'chest') return this.chests.get(this.openContainer.key) ?? null;
+    return null;
+  }
+  openFurnaceState() { return this.openContainer?.type === 'furnace' ? this.furnaces.get(this.openContainer.key) ?? null : null; }
+  closeContainer() { this.openContainer = null; }
+
+  nearestVillager(): Mob | null {
+    let best: Mob | null = null; let bd = 4.5;
+    const p = this.playerCenter();
+    for (const m of this.mobs) {
+      if (m.kind !== 'villager' || m.dead) continue;
+      const d = m.group.position.distanceTo(p);
+      if (d < bd) { bd = d; best = m; }
+    }
+    return best;
+  }
+  buyTrade(i: number) {
+    const v = this.nearestVillager();
+    if (!v) return;
+    const t = v.trades[i];
+    if (!t || t.done >= 12) return;
+    if (this.inventory.count(t.inId) < t.inCount) { this.events.onToast('Not enough items'); return; }
+    this.inventory.remove(t.inId, t.inCount);
+    this.inventory.add(t.outId, t.outCount);
+    t.done++;
+    this.inventory.onChange();
+    sounds.pop();
+  }
+
+  // third-person
+  perspective: 0 | 1 | 2 = 0;
+  private playerModel: THREE.Group | null = null;
+
+  // bow
+  private bowCharge = 0;
+
+  // village bookkeeping
+  private villageSpawned = new Set<string>();
   private mcp: MCPBridge;
   private buildGen: Generator<[number, number, number, number]> | null = null;
   private buildName = '';
@@ -179,7 +229,11 @@ export class Game {
       this.health = saved.health ?? 20;
       this.hunger = saved.hunger ?? 20;
       if (saved.inventory) this.inventory.load(saved.inventory);
+      if (saved.armor) this.inventory.loadArmor(saved.armor);
       if (saved.aiSettings) this.aiSettings = { ...this.aiSettings, ...saved.aiSettings };
+      if (saved.chests) for (const [k, v] of Object.entries(saved.chests)) this.chests.set(k, v.map((e) => (e ? { id: e[0], count: e[1] } : null)));
+      if (saved.furnaces) for (const [k, f] of Object.entries(saved.furnaces)) this.furnaces.set(k, { input: f.input ? { id: f.input[0], count: f.input[1] } : null, fuel: f.fuel ? { id: f.fuel[0], count: f.fuel[1] } : null, output: f.output ? { id: f.output[0], count: f.output[1] } : null, progress: f.progress, burn: f.burn, burnMax: 0, lit: f.burn > 0 });
+      if (saved.crops) for (const [k, v] of Object.entries(saved.crops)) this.crops.set(k, v);
       savedWeather = saved.weather ?? 'clear';
     } else {
       const ty = this.surfaceYAt(8, 8);
@@ -327,6 +381,22 @@ export class Game {
     meshes.trans = makeMesh(msg.trans, this.mats.trans, 2);
     meshes.water = makeMesh(msg.water, this.mats.water, 3);
     this.chunkMeshes.set(key, meshes);
+
+    // spawn villagers for a village whose region center this chunk hosts
+    const vc = villageCenterChunk(cx, cz, this.world.seed);
+    if (vc && !this.villageSpawned.has(vc.cx + ',' + vc.cz)) {
+      this.villageSpawned.add(vc.cx + ',' + vc.cz);
+      const vcx = vc.cx * 14 * CHUNK + 8, vcz = vc.cz * 14 * CHUNK + 8;
+      const vy = this.surfaceYAt(vcx, vcz);
+      if (vy > SEA) {
+        for (let i = 0; i < 3; i++) {
+          const vx = vcx + (Math.random() - 0.5) * 8, vz = vcz + (Math.random() - 0.5) * 8;
+          const mob = new Mob('villager', vx, vy + 1, vz);
+          this.mobs.push(mob); this.scene.add(mob.group);
+        }
+        this.events.onToast('You found a village!');
+      }
+    }
   }
 
   private requestChunk(cx: number, cz: number) {
@@ -447,23 +517,36 @@ export class Game {
       if (above && blockDef(above)?.cross) this.setBlockNet(hit.x, hit.y + 1, hit.z, 0);
       sounds.breakBlock();
       this.particles.burst(new THREE.Vector3(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5), this.blockColor(hit.id), 14);
-      if (this.mode === 'survival') {
+       if (this.mode === 'survival') {
         let drop = def.drop === undefined ? hit.id : def.drop;
         if (hit.id === B.LEAVES && Math.random() < 0.08) drop = IT.APPLE;
-        if (drop) {
-          this.inventory.add(drop, 1);
-          sounds.pickup();
-        }
+        if (hit.id === B.GRAVEL && Math.random() < 0.12) drop = IT.FLINT;
+        if (drop) this.spawnDrop(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5, drop, 1);
       }
       this.breakTarget = null; this.breakProgress = 0;
     }
   }
 
   placeBlock() {
+    // feeding animals takes priority on RMB
+    if (this.tryFeedMob()) return;
     const hit = this.raycast();
     if (hit) {
       if (hit.id === B.BED) { this.trySleep(hit.x, hit.y, hit.z); return; }
       if (hit.id === B.CRAFTING) { this.events.onInventory(); return; }
+      if (hit.id === B.CHEST) {
+        const k = hit.x + ',' + hit.y + ',' + hit.z;
+        if (!this.chests.has(k)) this.chests.set(k, new Array(27).fill(null));
+        this.openContainer = { type: 'chest', key: k }; this.events.onContainer?.({ type: 'chest', key: k }); this.swing(); return;
+      }
+      if (hit.id === B.FURNACE || hit.id === B.FURNACE_LIT) {
+        const k = hit.x + ',' + hit.y + ',' + hit.z;
+        if (!this.furnaces.has(k)) this.furnaces.set(k, { input: null, fuel: null, output: null, progress: 0, burn: 0, burnMax: 0, lit: false });
+        this.openContainer = { type: 'furnace', key: k }; this.events.onContainer?.({ type: 'furnace', key: k }); this.swing(); return;
+      }
+      if (isDoorOpen(hit.id) || hit.id === B.DOOR_L_N || hit.id === B.DOOR_L_E || hit.id === B.DOOR_L_S || hit.id === B.DOOR_L_W || hit.id === B.DOOR_U) {
+        this.toggleDoor(hit.x, hit.y, hit.z); return;
+      }
     }
     const held = this.heldItem();
     const food = itemDef(held)?.food;
@@ -477,6 +560,42 @@ export class Game {
       return;
     }
     if (!hit) return;
+    // bucket: fill from / place into liquid
+    if (held === IT.BUCKET || held === IT.WATER_BUCKET || held === IT.LAVA_BUCKET) {
+      const t = this.world.getBlock(hit.x, hit.y, hit.z);
+      if (held === IT.BUCKET && (t === B.WATER || t === B.LAVA)) {
+        this.setBlockNet(hit.x, hit.y, hit.z, 0);
+        this.inventory.slots[this.selectedSlot] = { id: t === B.WATER ? IT.WATER_BUCKET : IT.LAVA_BUCKET, count: 1 };
+        sounds.placeBlock(); this.swing(); return;
+      }
+      if (held === IT.WATER_BUCKET || held === IT.LAVA_BUCKET) {
+        const px = hit.x + hit.nx, py = hit.y + hit.ny, pz = hit.z + hit.nz;
+        const want = held === IT.WATER_BUCKET ? B.WATER : B.LAVA;
+        const existing = this.world.getBlock(px, py, pz);
+        if (existing === 0 || existing === want) {
+          this.setBlockNet(px, py, pz, want);
+          if (this.mode === 'survival') this.inventory.slots[this.selectedSlot] = { id: IT.BUCKET, count: 1 };
+          sounds.placeBlock(); this.swing();
+        }
+      }
+      return;
+    }
+    // seeds on farmland
+    if (held === IT.WHEAT_SEEDS) {
+      if (this.world.getBlock(hit.x, hit.y, hit.z) === B.FARMLAND && this.world.getBlock(hit.x, hit.y + 1, hit.z) === 0) {
+        this.setBlockNet(hit.x, hit.y + 1, hit.z, B.WHEAT_YOUNG);
+        this.crops.set(hit.x + ',' + (hit.y + 1) + ',' + hit.z, 0);
+        if (this.mode === 'survival') this.inventory.consumeHeld(1);
+        this.swing();
+      }
+      return;
+    }
+    // hoe -> farmland
+    if (itemDef(held)?.tool?.type === 'hoe') {
+      const t = this.world.getBlock(hit.x, hit.y, hit.z);
+      if (t === B.GRASS || t === B.DIRT) { this.setBlockNet(hit.x, hit.y, hit.z, B.FARMLAND); this.swing(); }
+      return;
+    }
     const id = this.mode === 'creative' ? this.hotbar[this.selectedSlot] : this.inventory.slots[this.selectedSlot]?.id ?? 0;
     if (!id || id >= 100) return;
     const px = hit.x + hit.nx, py = hit.y + hit.ny, pz = hit.z + hit.nz;
@@ -484,6 +603,25 @@ export class Game {
     if (id === B.VSLAB_X0) {
       const facing = ((Math.round(this.yaw / (Math.PI / 2)) % 4) + 4) % 4;
       placeId = [B.VSLAB_Z0, B.VSLAB_X1, B.VSLAB_Z1, B.VSLAB_X0][facing];
+    }
+    // door: place lower + upper based on facing
+    if (id === B.DOOR_L_N || id === B.DOOR_L_E || id === B.DOOR_L_S || id === B.DOOR_L_W || isDoorOpen(id)) {
+      const facing = ((Math.round(this.yaw / (Math.PI / 2)) % 4) + 4) % 4;
+      const low = [B.DOOR_L_N, B.DOOR_L_E, B.DOOR_L_S, B.DOOR_L_W][facing];
+      if (py + 1 >= WORLD_H) return;
+      if (this.world.getBlock(px, py, pz) !== 0 || this.world.getBlock(px, py + 1, pz) !== 0) return;
+      this.setBlockNet(px, py, pz, low);
+      this.setBlockNet(px, py + 1, pz, B.DOOR_U);
+      if (this.mode === 'survival') this.inventory.consumeHeld(1);
+      sounds.placeBlock(); this.swing();
+      return;
+    }
+    // ladder facing
+    if (id === B.LADDER_N || id === B.LADDER_E || id === B.LADDER_S || id === B.LADDER_W) {
+      const facing = ((Math.round(this.yaw / (Math.PI / 2)) % 4) + 4) % 4;
+      const lad = [B.LADDER_N, B.LADDER_E, B.LADDER_S, B.LADDER_W][facing];
+      if (this.world.getBlock(px, py, pz) === 0) { this.setBlockNet(px, py, pz, lad); if (this.mode === 'survival') this.inventory.consumeHeld(1); sounds.placeBlock(); this.swing(); }
+      return;
     }
     if (isSolid(placeId)) {
       const pw = 0.3, ph = 1.8;
@@ -595,7 +733,10 @@ export class Game {
     this.vel.x += (fx * speed - this.vel.x) * Math.min(1, accel * dt);
     this.vel.z += (fz * speed - this.vel.z) * Math.min(1, accel * dt);
 
-    if (this.flying) {
+    const onLadder = this.touchingLadder();
+    if (onLadder && !this.flying) {
+      this.vel.y = input.jump ? 5 : (input.sneak ? 0 : -1.6);
+    } else if (this.flying) {
       this.vel.y += ((input.jump ? 8 : 0) + (input.sneak ? -8 : 0) - this.vel.y) * Math.min(1, 10 * dt);
     } else if (inWater) {
       this.vel.y -= 10 * dt;
@@ -614,6 +755,13 @@ export class Game {
     this.wasJump = input.jump;
 
     const preVelY = this.vel.y;
+    if (input.sneak && this.onGround && !this.flying && !onLadder) {
+      const tryX = this.pos.x + this.vel.x * dt, tryZ = this.pos.z + this.vel.z * dt;
+      const by = Math.floor(this.pos.y - 0.05);
+      const has = (x: number, z: number) => isSolid(this.world.getBlock(Math.floor(x), by, Math.floor(z)));
+      const corners = [[0.3, 0.3], [0.3, -0.3], [-0.3, 0.3], [-0.3, -0.3]];
+      if (!corners.some(([ox, oz]) => has(tryX + ox, tryZ + oz))) { this.vel.x = 0; this.vel.z = 0; }
+    }
     const res = collide(this.world, box, this.vel.x * dt, this.vel.y * dt, this.vel.z * dt);
     if (res.hitHead) this.vel.y = Math.min(this.vel.y, 0);
     if (res.onGround) {
@@ -658,7 +806,14 @@ export class Game {
     this.camera.rotation.order = 'YXZ';
     this.camera.rotation.y = this.yaw;
     this.camera.rotation.x = this.pitch;
-    const targetFov = 74 + (sprinting ? 6 : 0) + (this.flying ? 4 : 0);
+    if (this.perspective !== 0) {
+      const dir = new THREE.Vector3(); this.camera.getWorldDirection(dir);
+      const dist = this.perspective === 2 ? 5.6 : 4.2;
+      const camPos = new THREE.Vector3(this.pos.x, this.pos.y + eye, this.pos.z).addScaledVector(dir, -dist);
+      if (isSolid(this.world.getBlock(Math.floor(camPos.x), Math.floor(camPos.y), Math.floor(camPos.z)))) camPos.addScaledVector(dir, 0.8);
+      this.camera.position.copy(camPos);
+    }
+    const targetFov = 74 + (sprinting ? 6 : 0) + (this.flying ? 4 : 0) + (this.bowCharge > 0.1 ? -8 * this.bowCharge : 0);
     this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, dt * 8);
     this.camera.updateProjectionMatrix();
 
@@ -675,7 +830,18 @@ export class Game {
       const hit = this.raycast();
       this.events.onTarget(hit ? blockDef(hit.id)?.name ?? null : null, 0);
     }
-    if (input.placeQueued && !this.paused) { this.placeBlock(); input.placeQueued = false; }
+    if (input.placeQueued && !this.paused) { if (this.heldItem() !== IT.BOW) this.placeBlock(); input.placeQueued = false; }
+    if (this.heldItem() === IT.BOW) {
+      if (input.placeHeld) this.bowCharge = Math.min(1, this.bowCharge + dt * 0.9);
+      else if (this.bowCharge > 0) {
+        const power = this.bowCharge; this.bowCharge = 0;
+        if (this.mode === 'survival' && this.inventory.count(IT.ARROW) <= 0) this.events.onToast('No arrows!');
+        else { if (this.mode === 'survival') this.inventory.remove(IT.ARROW, 1); this.shootArrowPlayer(power); }
+      }
+    } else this.bowCharge = 0;
+    this.events.onBow?.(this.bowCharge);
+    if (input.dropItem) { input.dropItem = false; this.dropHeld(); }
+    if (input.togglePerspective) { input.togglePerspective = false; this.perspective = (this.perspective === 2 ? 0 : (this.perspective + 1)) as 0 | 1 | 2; }
   }
 
   private doubleTapCheck(): boolean {
@@ -687,7 +853,10 @@ export class Game {
 
   damage(amount: number) {
     if (this.dead || this.mode === 'creative') return;
-    this.health = Math.max(0, this.health - amount);
+    const dp = this.inventory.defensePoints();
+    const reduction = Math.min(0.8, dp * 0.04);
+    const amt = amount * (1 - reduction);
+    this.health = Math.max(0, this.health - amt);
     this.damageFlash = 1;
     sounds.hurt();
     if (this.health <= 0) this.die();
@@ -709,6 +878,167 @@ export class Game {
   }
 
   private swing() { if (this.swingT >= 0.6) this.swingT = 0; }
+
+  // ---------- dropped items, containers, furnace, crops ----------
+  private playerCenter(): THREE.Vector3 { return new THREE.Vector3(this.pos.x, this.pos.y + 0.9, this.pos.z); }
+
+  private spawnDrop(x: number, y: number, z: number, id: number, count: number) {
+    const cv = this.itemIconCanvas(id);
+    let mesh: THREE.Mesh;
+    if (cv) {
+      const tex = new THREE.CanvasTexture(cv);
+      tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.colorSpace = THREE.SRGBColorSpace;
+      mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.05, side: THREE.DoubleSide }));
+    } else {
+      mesh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), new THREE.MeshLambertMaterial({ color: 0xcccccc }));
+    }
+    mesh.position.set(x, y, z);
+    this.scene.add(mesh);
+    this.dropped.push({ id, count, pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3((Math.random() - 0.5) * 2, 3, (Math.random() - 0.5) * 2), mesh, age: 0 });
+  }
+
+  private updateDropped(dt: number) {
+    const c = this.playerCenter();
+    for (const d of this.dropped) {
+      d.age += dt;
+      d.vel.y -= 22 * dt;
+      const box = { minX: d.pos.x - 0.15, minY: d.pos.y - 0.15, minZ: d.pos.z - 0.15, maxX: d.pos.x + 0.15, maxY: d.pos.y + 0.15, maxZ: d.pos.z + 0.15 };
+      const res = collide(this.world, box, d.vel.x * dt, d.vel.y * dt, d.vel.z * dt);
+      d.pos.set(box.minX + 0.15, box.minY + 0.15, box.minZ + 0.15);
+      d.vel.x *= 0.86; d.vel.z *= 0.86;
+      if (res.onGround) d.vel.y = 0;
+      d.mesh.position.copy(d.pos);
+      d.mesh.rotation.y += dt * 3;
+      const dist = d.pos.distanceTo(c);
+      if (dist < 2.6 && !this.flying) d.vel.add(c.clone().sub(d.pos).multiplyScalar(5 * dt));
+      if (dist < 1.1 && this.mode === 'survival') {
+        this.inventory.add(d.id, d.count);
+        this.scene.remove(d.mesh); (d.mesh.material as THREE.Material).dispose(); d.mesh.geometry.dispose();
+        d.mesh.position.set(1e6, 1e6, 1e6); d.dead = true;
+        sounds.pickup();
+      }
+    }
+    this.dropped = this.dropped.filter((d) => !d.dead);
+  }
+
+  private touchingLadder(): boolean {
+    const w = 0.3, h = 1.8;
+    for (let y = Math.floor(this.pos.y); y <= Math.floor(this.pos.y + h); y++)
+      for (let x = Math.floor(this.pos.x - w); x <= Math.floor(this.pos.x + w); x++)
+        for (let z = Math.floor(this.pos.z - w); z <= Math.floor(this.pos.z + w); z++)
+          if (isClimbable(this.world.getBlock(x, y, z))) return true;
+    return false;
+  }
+
+  private buildPlayerModel() {
+    const g = new THREE.Group();
+    const mat = (c: number) => new THREE.MeshLambertMaterial({ color: c });
+    const box = (w: number, h: number, d: number, m: THREE.Material, x: number, y: number, z: number) => {
+      const me = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); me.position.set(x, y, z); g.add(me); return me;
+    };
+    box(0.5, 0.5, 0.28, mat(0x3a6ea5), 0, 1.4, 0); // torso (shirt)
+    box(0.5, 0.4, 0.28, mat(0x2b2b2b), 0, 0.9, 0); // legs
+    box(0.5, 0.4, 0.5, mat(0xd8a06a), 0, 1.95, 0); // head
+    box(0.16, 0.5, 0.16, mat(0x3a6ea5), -0.33, 1.4, 0); // arm L
+    box(0.16, 0.5, 0.16, mat(0x3a6ea5), 0.33, 1.4, 0); // arm R
+    return g;
+  }
+
+  private updatePlayerModel() {
+    if (!this.playerModel) { this.playerModel = this.buildPlayerModel(); this.scene.add(this.playerModel); this.playerModel.visible = false; }
+    const show = this.perspective !== 0;
+    this.playerModel.visible = show;
+    if (!show) return;
+    this.playerModel.position.set(this.pos.x, this.pos.y, this.pos.z);
+    this.playerModel.rotation.y = this.yaw;
+    const walk = Math.sin(this.bobT) * (this.onGround ? 0.5 : 0.1);
+    this.playerModel.children[0].rotation.x = 0;
+    this.playerModel.children[4].rotation.x = walk;
+    this.playerModel.children[5].rotation.x = -walk;
+  }
+
+  private toggleDoor(x: number, y: number, z: number) {
+    const id = this.world.getBlock(x, y, z);
+    const map: Record<number, number> = {
+      [B.DOOR_L_N]: B.DOOR_OPEN_L_N, [B.DOOR_L_E]: B.DOOR_OPEN_L_E, [B.DOOR_L_S]: B.DOOR_OPEN_L_S, [B.DOOR_L_W]: B.DOOR_OPEN_L_W,
+      [B.DOOR_OPEN_L_N]: B.DOOR_L_N, [B.DOOR_OPEN_L_E]: B.DOOR_L_E, [B.DOOR_OPEN_L_S]: B.DOOR_L_S, [B.DOOR_OPEN_L_W]: B.DOOR_L_W,
+    };
+    const up = this.world.getBlock(x, y + 1, z);
+    const openUp = up === B.DOOR_U || up === B.DOOR_OPEN_U;
+    if (map[id]) { this.setBlockNet(x, y, z, map[id]); if (openUp) this.setBlockNet(x, y + 1, z, isDoorOpen(map[id]) ? B.DOOR_OPEN_U : B.DOOR_U); sounds.placeBlock(); }
+  }
+
+  private tickFurnace(dt: number) {
+    for (const [key, f] of this.furnaces) {
+      const [x, y, z] = key.split(',').map(Number);
+      if (f.burn > 0) {
+        f.burn -= dt;
+        const sm = f.input && SMELT[f.input.id];
+        if (sm) {
+          f.progress += dt;
+          if (f.progress >= sm.time) {
+            f.progress = 0;
+            if (f.input) { f.input.count--; if (f.input.count <= 0) f.input = null; }
+            const out = sm.out;
+            if (!f.output) f.output = { id: out, count: 0 };
+            f.output.count = Math.min(64, f.output.count + 1);
+            sounds.pop();
+          }
+        }
+        if (f.burn <= 0) { f.burn = 0; f.lit = false; this.setBlockNet(x, y, z, B.FURNACE); }
+      }
+      if (f.burn <= 0 && f.input && SMELT[f.input.id] && f.fuel) {
+        const burn = FUEL[f.fuel.id] ?? 0;
+        f.fuel.count--; if (f.fuel.count <= 0) f.fuel = null;
+        f.burn = burn; f.lit = true;
+        this.setBlockNet(x, y, z, B.FURNACE_LIT);
+      }
+    }
+  }
+
+  private tickCrops(dt: number) {
+    for (const [key, frac] of this.crops) {
+      const [x, y, z] = key.split(',').map(Number);
+      const cur = this.world.getBlock(x, y, z);
+      if (cur !== B.WHEAT_YOUNG) { this.crops.delete(key); continue; }
+      const nf = frac + dt / 55;
+      if (nf >= 1) { this.setBlockNet(x, y, z, B.WHEAT_MATURE); this.crops.delete(key); }
+      else this.crops.set(key, nf);
+    }
+  }
+
+  private tryFeedMob(): boolean {
+    const held = this.heldItem();
+    const isFood = held === IT.WHEAT || held === IT.WHEAT_SEEDS;
+    if (!isFood) return false;
+    const dir = new THREE.Vector3(); this.camera.getWorldDirection(dir);
+    for (const m of this.mobs) {
+      if (m.hostile) continue;
+      const to = m.group.position.clone().add(new THREE.Vector3(0, 0.8, 0)).sub(this.camera.position);
+      if (to.length() < 3.6 && to.normalize().dot(dir) > 0.8) {
+        if (this.mode === 'survival') this.inventory.consumeHeld(1);
+        m.loveTimer = 12;
+        this.particles.burst(m.group.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xff66cc, 8);
+        // breed
+        const partner = this.mobs.find((o) => o !== m && !o.hostile && o.kind === m.kind && o.loveTimer > 0 && o.group.position.distanceTo(m.group.position) < 3);
+        if (partner) {
+          m.loveTimer = 0; partner.loveTimer = 0;
+          const baby = new Mob(m.kind, m.group.position.x + 0.5, m.group.position.y, m.group.position.z + 0.5, true);
+          this.mobs.push(baby); this.scene.add(baby.group);
+          this.events.onToast('A baby ' + m.kind + ' was born!');
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private dropHeld() {
+    const s = this.inventory.slots[this.selectedSlot];
+    if (!s) return;
+    this.spawnDrop(this.pos.x, this.pos.y + 1, this.pos.z, s.id, 1);
+    this.inventory.consumeHeld(1);
+  }
 
   // ---------- held item view model ----------
   private uvFor(tileIdx: number): [number, number, number, number] {
@@ -855,13 +1185,8 @@ export class Game {
         this.arrows.push({ mesh, vel: dir.clone().multiplyScalar(18), life: 4 });
       },
       onDeath: (kind: MobKind) => {
-        const drops: Partial<Record<MobKind, number>> = {
-          pig: IT.PORKCHOP, cow: IT.BEEF, sheep: B.WOOL_WHITE,
-          zombie: Math.random() < 0.25 ? IT.IRON_CHUNK : 0,
-          skeleton: IT.STICK, creeper: IT.GUNPOWDER,
-        };
-        const drop = drops[kind] ?? 0;
-        if (drop && this.mode === 'survival') { this.inventory.add(drop, 1); sounds.pickup(); }
+        const drop = this.mobDrop(kind);
+        if (drop && this.mode === 'survival') this.spawnDrop(this.mobs.find((m) => m.kind === kind)?.group.position.x ?? this.pos.x, this.pos.y + 0.5, this.pos.z, drop, 1);
       },
       burst: (pos: THREE.Vector3, color: number, count: number) => this.particles.burst(pos, color, count),
       explode: (pos: THREE.Vector3, radius: number) => this.explode(Math.floor(pos.x), Math.floor(pos.y), Math.floor(pos.z), radius),
@@ -943,6 +1268,41 @@ export class Game {
       if (a.life <= 0) { this.scene.remove(a.mesh); a.mesh.geometry.dispose(); return false; }
       return true;
     });
+  }
+
+  private shootArrowPlayer(power: number) {
+    const dir = new THREE.Vector3(); this.camera.getWorldDirection(dir);
+    const from = this.camera.position.clone().addScaledVector(dir, 0.6);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.5), new THREE.MeshBasicMaterial({ color: 0x8a6a3e }));
+    mesh.position.copy(from); mesh.lookAt(from.clone().add(dir));
+    this.scene.add(mesh);
+    const speed = 14 + power * 22;
+    this.arrows.push({ mesh, vel: dir.clone().multiplyScalar(speed), life: 5 });
+    this.swing();
+  }
+
+  private mobDrop(kind: MobKind): number {
+    const map: Partial<Record<MobKind, number>> = { pig: IT.PORKCHOP, cow: IT.BEEF, sheep: B.WOOL_WHITE, chicken: IT.FEATHER, zombie: Math.random() < 0.25 ? IT.IRON_CHUNK : 0, skeleton: IT.ARROW, creeper: IT.GUNPOWDER, villager: IT.EMERALD };
+    return map[kind] ?? 0;
+  }
+
+  // arrow-vs-mob collision: handle player arrows hurting mobs
+  private updateArrowHits() {
+    for (const a of this.arrows) {
+      if (a.life <= 0) continue;
+      for (const m of this.mobs) {
+        const d = a.mesh.position.distanceTo(m.group.position.clone().add(new THREE.Vector3(0, 0.9, 0)));
+        if (d < 1.0) {
+          const dmg = 3 + this.bowCharge * 6;
+          if (m.hit(a.vel.clone().normalize(), dmg, (p, c, n) => this.particles.burst(p, c, n))) {
+            sounds.pop();
+            this.spawnDrop(m.group.position.x, m.group.position.y + 0.5, m.group.position.z, this.mobDrop(m.kind), 1);
+          }
+          a.life = 0;
+          break;
+        }
+      }
+    }
   }
 
   private updateTNT(dt: number) {
@@ -1196,7 +1556,7 @@ export class Game {
   // ---------- save ----------
   save() {
     saveWorld({
-      v: 2,
+      v: 3,
       name: this.worldName,
       seed: this.world.seed,
       mode: this.mode,
@@ -1204,6 +1564,7 @@ export class Game {
       player: { x: this.pos.x, y: this.pos.y, z: this.pos.z, yaw: this.yaw, pitch: this.pitch },
       spawn: { ...this.spawnPoint },
       inventory: this.mode === 'survival' ? this.inventory.serialize() : null,
+      armor: this.inventory.serializeArmor(),
       health: this.health,
       hunger: this.hunger,
       timeOfDay: this.timeOfDay,
@@ -1211,6 +1572,9 @@ export class Game {
       weather: this.weather.kind,
       waypoints: this.waypoints,
       aiSettings: { ...this.aiSettings },
+      chests: Object.fromEntries(Array.from(this.chests.entries()).map(([k, v]) => [k, v.map((s) => (s ? [s.id, s.count] : null))])),
+      furnaces: Object.fromEntries(Array.from(this.furnaces.entries()).map(([k, f]) => [k, { input: f.input ? [f.input.id, f.input.count] : null, fuel: f.fuel ? [f.fuel.id, f.fuel.count] : null, output: f.output ? [f.output.id, f.output.count] : null, progress: f.progress, burn: f.burn }])),
+      crops: Object.fromEntries(this.crops),
       savedAt: Date.now(),
     });
   }
@@ -1247,9 +1611,14 @@ export class Game {
       this.updatePlayer(dt);
       this.updateSky(dt);
       this.weather.update(dt, this.camera.position);
-      this.updateMobs(dt);
+       this.updateMobs(dt);
       this.updateArrows(dt);
+      this.updateArrowHits();
       this.updateTNT(dt);
+      this.updateDropped(dt);
+      this.tickFurnace(dt);
+      this.tickCrops(dt);
+      this.updatePlayerModel();
       this.updateBuild();
       this.particles.update(dt);
       this.damageFlash = Math.max(0, this.damageFlash - dt * 1.6);

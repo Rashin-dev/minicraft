@@ -9,17 +9,22 @@ export interface InputState {
   lookDY: number;
   breakHeld: boolean;
   placeQueued: boolean;
+  placeHeld: boolean;
+  dropItem: boolean;
+  togglePerspective: boolean;
   breakQueued: boolean;
 }
 
 export const input: InputState = {
   forward: 0, strafe: 0, jump: false, sneak: false, sprint: false,
-  lookDX: 0, lookDY: 0, breakHeld: false, placeQueued: false, breakQueued: false,
+  lookDX: 0, lookDY: 0, breakHeld: false, placeQueued: false, placeHeld: false, dropItem: false, togglePerspective: false, breakQueued: false,
 };
 
 export class Controls {
   keys = new Set<string>();
   isTouch = false;
+  private lastW = 0;
+  private sprintTap = false;
   private canvas: HTMLElement;
   onPause: () => void = () => {};
   onHotbar: (i: number) => void = () => {};
@@ -48,9 +53,16 @@ export class Controls {
       if (e.code === 'KeyT' || e.code === 'Slash') { this.onChat(e.code === 'Slash' ? '/' : ''); e.preventDefault(); }
       if (e.code === 'KeyF') this.onFlyToggle();
       if (e.code === 'F3') { this.onDebug(); e.preventDefault(); }
+      if (e.code === 'KeyQ') { input.dropItem = true; }
+      if (e.code === 'F5') { input.togglePerspective = true; e.preventDefault(); }
+      if (e.code === 'KeyW') {
+        const now = performance.now();
+        if (now - this.lastW < 300) this.sprintTap = true;
+        this.lastW = now;
+      }
       this.syncKeys();
     });
-    window.addEventListener('keyup', (e) => { this.keys.delete(e.code); this.syncKeys(); });
+    window.addEventListener('keyup', (e) => { this.keys.delete(e.code); if (e.code === 'KeyW') this.sprintTap = false; this.syncKeys(); });
     window.addEventListener('blur', () => { this.keys.clear(); this.syncKeys(); });
 
     canvas.addEventListener('wheel', (e) => {
@@ -71,9 +83,9 @@ export class Controls {
     document.addEventListener('mousedown', (e) => {
       if (!this.enabled || document.pointerLockElement !== this.canvas) return;
       if (e.button === 0) input.breakHeld = true;
-      if (e.button === 2) input.placeQueued = true;
+      if (e.button === 2) { input.placeQueued = true; input.placeHeld = true; }
     });
-    document.addEventListener('mouseup', (e) => { if (e.button === 0) input.breakHeld = false; });
+    document.addEventListener('mouseup', (e) => { if (e.button === 0) input.breakHeld = false; if (e.button === 2) input.placeHeld = false; });
     document.addEventListener('contextmenu', (e) => e.preventDefault());
 
     // Touch look: drag on the canvas (HUD joystick is a separate element)
@@ -127,7 +139,7 @@ export class Controls {
       input.strafe = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
     }
     if (k.has('Space')) input.jump = true; else if (!this.isTouch) input.jump = false;
-    if (!this.isTouch) input.sprint = k.has('ShiftLeft') || k.has('ShiftRight');
-    if (!this.isTouch) input.sneak = k.has('ControlLeft') || k.has('KeyC');
+    if (!this.isTouch) input.sneak = k.has('ShiftLeft') || k.has('ShiftRight');
+    if (!this.isTouch) input.sprint = k.has('ControlLeft') || k.has('ControlRight') || this.sprintTap;
   }
 }

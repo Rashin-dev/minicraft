@@ -16,6 +16,17 @@ export const B = {
   WOOL_WHITE: 51, WOOL_BLACK: 52, STONE_BRICKS: 53,
   DIAMOND_BLOCK: 54, GOLD_BLOCK: 55, IRON_BLOCK: 56,
   LAVA: 57, BED: 58, FLOWER_PINK: 59, DEAD_BUSH: 60,
+  STAIRS_PLANKS_N: 61, STAIRS_PLANKS_E: 62, STAIRS_PLANKS_S: 63, STAIRS_PLANKS_W: 64,
+  STAIRS_COBBLE_N: 65, STAIRS_COBBLE_E: 66, STAIRS_COBBLE_S: 67, STAIRS_COBBLE_W: 68,
+  STAIRS_BRICK_N: 69, STAIRS_BRICK_E: 70, STAIRS_BRICK_S: 71, STAIRS_BRICK_W: 72,
+  STAIRS_SANDSTONE_N: 73, STAIRS_SANDSTONE_E: 74, STAIRS_SANDSTONE_S: 75, STAIRS_SANDSTONE_W: 76,
+  FENCE: 77,
+  DOOR_L_N: 78, DOOR_L_E: 79, DOOR_L_S: 80, DOOR_L_W: 81, DOOR_U: 82,
+  DOOR_OPEN_L_N: 83, DOOR_OPEN_L_E: 84, DOOR_OPEN_L_S: 85, DOOR_OPEN_L_W: 86, DOOR_OPEN_U: 87,
+  TRAPDOOR: 88, TRAPDOOR_OPEN: 89,
+  CHEST: 90, FURNACE: 91, FURNACE_LIT: 92,
+  LADDER_N: 93, LADDER_E: 94, LADDER_S: 95, LADDER_W: 96,
+  FARMLAND: 97, WHEAT_YOUNG: 98, WHEAT_MATURE: 99,
 } as const;
 
 // Non-block items start at 100
@@ -26,13 +37,19 @@ export const IT = {
   WOOD_AXE: 114, STONE_AXE: 115, IRON_AXE: 116, DIAMOND_AXE: 117,
   WOOD_SHOVEL: 118, STONE_SHOVEL: 119, IRON_SHOVEL: 120, DIAMOND_SHOVEL: 121,
   WOOD_SWORD: 122, STONE_SWORD: 123, IRON_SWORD: 124, DIAMOND_SWORD: 125,
+  FLINT: 126, FEATHER: 127, BUCKET: 128, WATER_BUCKET: 129, LAVA_BUCKET: 130,
+  BOW: 131, ARROW: 132, WHEAT_SEEDS: 133, WHEAT: 134, BREAD: 135,
+  WOOD_HOE: 136, STONE_HOE: 137, IRON_HOE: 138, DIAMOND_HOE: 139,
+  IRON_HELMET: 140, IRON_CHESTPLATE: 141, IRON_LEGGINGS: 142, IRON_BOOTS: 143,
+  DIA_HELMET: 144, DIA_CHESTPLATE: 145, DIA_LEGGINGS: 146, DIA_BOOTS: 147,
+  EMERALD: 148, COOKED_PORKCHOP: 149, COOKED_STEAK: 150,
 } as const;
 
-export type ToolType = 'pickaxe' | 'axe' | 'shovel' | 'sword';
+export type ToolType = 'pickaxe' | 'axe' | 'shovel' | 'sword' | 'hoe';
 
 export interface BlockDef {
   name: string;
-  top: string; side: string; bottom?: string;
+  top: string; side: string; bottom?: string; front?: string; xm?: string;
   solid: boolean;
   opaque: boolean;
   liquid?: boolean;
@@ -41,6 +58,7 @@ export interface BlockDef {
   light?: number;
   lightColor?: [number, number, number];
   slab?: 'bottom' | 'x0' | 'x1' | 'z0' | 'z1';
+  shape?: string;          // stairs_N.., fence, door_*, trapdoor, ladder_*, chest, farmland
   transparent?: boolean;
   breakTime?: number;   // base seconds with bare hand
   tool?: ToolType;      // tool that speeds it up
@@ -52,12 +70,26 @@ export interface ItemDef {
   name: string;
   tool?: { type: ToolType; tier: number; speed: number; damage: number };
   food?: number; // hunger restored
-  fuel?: boolean;
+  fuel?: boolean; // seconds of furnace burn (multiplied)
+  armor?: { slot: 0 | 1 | 2 | 3; defense: number };
+  projectile?: boolean;
 }
 
-const D = (def: Partial<BlockDef> & Pick<BlockDef, 'name' | 'top' | 'side'>): BlockDef => ({
-  solid: true, opaque: true, breakTime: 0.6, ...def,
-});
+type TileSet = { all?: string; top?: string; bottom?: string; front?: string; xm?: string };
+type RawBlockDef = Partial<BlockDef> & { tiles?: TileSet; name: string };
+const D = (raw: RawBlockDef): BlockDef => {
+  const def = { solid: true, opaque: true, breakTime: 0.6, ...raw } as BlockDef & { tiles?: TileSet };
+  const t = raw.tiles;
+  if (t) {
+    def.top = def.top ?? t.top ?? t.all ?? 'stone';
+    def.side = def.side ?? t.all ?? 'stone';
+    def.bottom = def.bottom ?? t.bottom ?? t.all ?? def.side;
+  }
+  // strip tiles before returning
+  const { tiles: _tiles, ...blockDef } = def as BlockDef & { tiles?: TileSet };
+  void _tiles;
+  return blockDef as BlockDef;
+};
 
 export const BLOCKS: Record<number, BlockDef> = {
   [B.GRASS]: D({ name: 'Grass Block', top: 'grass_top', side: 'grass_side', bottom: 'dirt', breakTime: 0.5, tool: 'shovel', drop: B.DIRT }),
@@ -122,6 +154,49 @@ export const BLOCKS: Record<number, BlockDef> = {
   [B.DEAD_BUSH]: D({ name: 'Dead Bush', top: 'dead_bush', side: 'dead_bush', solid: false, opaque: false, cross: true, breakTime: 0.05, drop: null }),
 };
 
+const NEW_BLOCK_DEFS: Record<number, BlockDef> = {
+  [B.STAIRS_PLANKS_N]: D({ name: 'Oak Stairs', solid: true, opaque: false, tiles: { all: 'planks', bottom: 'planks' }, shape: 'stairs_N', drop: B.PLANKS }),
+  [B.STAIRS_PLANKS_E]: D({ name: 'Oak Stairs', solid: true, opaque: false, tiles: { all: 'planks', bottom: 'planks' }, shape: 'stairs_E', drop: B.PLANKS }),
+  [B.STAIRS_PLANKS_S]: D({ name: 'Oak Stairs', solid: true, opaque: false, tiles: { all: 'planks', bottom: 'planks' }, shape: 'stairs_S', drop: B.PLANKS }),
+  [B.STAIRS_PLANKS_W]: D({ name: 'Oak Stairs', solid: true, opaque: false, tiles: { all: 'planks', bottom: 'planks' }, shape: 'stairs_W', drop: B.PLANKS }),
+  [B.STAIRS_COBBLE_N]: D({ name: 'Cobble Stairs', solid: true, opaque: false, tiles: { all: 'cobblestone', bottom: 'cobblestone' }, shape: 'stairs_N', drop: B.COBBLE }),
+  [B.STAIRS_COBBLE_E]: D({ name: 'Cobble Stairs', solid: true, opaque: false, tiles: { all: 'cobblestone', bottom: 'cobblestone' }, shape: 'stairs_E', drop: B.COBBLE }),
+  [B.STAIRS_COBBLE_S]: D({ name: 'Cobble Stairs', solid: true, opaque: false, tiles: { all: 'cobblestone', bottom: 'cobblestone' }, shape: 'stairs_S', drop: B.COBBLE }),
+  [B.STAIRS_COBBLE_W]: D({ name: 'Cobble Stairs', solid: true, opaque: false, tiles: { all: 'cobblestone', bottom: 'cobblestone' }, shape: 'stairs_W', drop: B.COBBLE }),
+  [B.STAIRS_BRICK_N]: D({ name: 'Brick Stairs', solid: true, opaque: false, tiles: { all: 'brick', bottom: 'brick' }, shape: 'stairs_N', drop: B.BRICK }),
+  [B.STAIRS_BRICK_E]: D({ name: 'Brick Stairs', solid: true, opaque: false, tiles: { all: 'brick', bottom: 'brick' }, shape: 'stairs_E', drop: B.BRICK }),
+  [B.STAIRS_BRICK_S]: D({ name: 'Brick Stairs', solid: true, opaque: false, tiles: { all: 'brick', bottom: 'brick' }, shape: 'stairs_S', drop: B.BRICK }),
+  [B.STAIRS_BRICK_W]: D({ name: 'Brick Stairs', solid: true, opaque: false, tiles: { all: 'brick', bottom: 'brick' }, shape: 'stairs_W', drop: B.BRICK }),
+  [B.STAIRS_SANDSTONE_N]: D({ name: 'Sandstone Stairs', solid: true, opaque: false, tiles: { all: 'sandstone', top: 'sandstone_top', bottom: 'sandstone' }, shape: 'stairs_N', drop: B.SANDSTONE }),
+  [B.STAIRS_SANDSTONE_E]: D({ name: 'Sandstone Stairs', solid: true, opaque: false, tiles: { all: 'sandstone', top: 'sandstone_top', bottom: 'sandstone' }, shape: 'stairs_E', drop: B.SANDSTONE }),
+  [B.STAIRS_SANDSTONE_S]: D({ name: 'Sandstone Stairs', solid: true, opaque: false, tiles: { all: 'sandstone', top: 'sandstone_top', bottom: 'sandstone' }, shape: 'stairs_S', drop: B.SANDSTONE }),
+  [B.STAIRS_SANDSTONE_W]: D({ name: 'Sandstone Stairs', solid: true, opaque: false, tiles: { all: 'sandstone', top: 'sandstone_top', bottom: 'sandstone' }, shape: 'stairs_W', drop: B.SANDSTONE }),
+  [B.FENCE]: D({ name: 'Oak Fence', solid: true, opaque: false, transparent: true, tiles: { all: 'planks' }, shape: 'fence', drop: B.PLANKS }),
+  [B.DOOR_L_N]: D({ name: 'Oak Door', solid: true, opaque: false, transparent: true, tiles: { all: 'planks' }, shape: 'door_N', drop: B.PLANKS }),
+  [B.DOOR_L_E]: D({ name: 'Oak Door', solid: true, opaque: false, transparent: true, tiles: { all: 'planks' }, shape: 'door_E', drop: B.PLANKS }),
+  [B.DOOR_L_S]: D({ name: 'Oak Door', solid: true, opaque: false, transparent: true, tiles: { all: 'planks' }, shape: 'door_S', drop: B.PLANKS }),
+  [B.DOOR_L_W]: D({ name: 'Oak Door', solid: true, opaque: false, transparent: true, tiles: { all: 'planks' }, shape: 'door_W', drop: B.PLANKS }),
+  [B.DOOR_U]: D({ name: 'Oak Door', solid: true, opaque: false, transparent: true, tiles: { all: 'planks' }, shape: 'door_U', drop: B.PLANKS }),
+  [B.DOOR_OPEN_L_N]: D({ name: 'Oak Door', solid: true, opaque: false, transparent: true, tiles: { all: 'planks' }, shape: 'door_open_N', drop: B.PLANKS }),
+  [B.DOOR_OPEN_L_E]: D({ name: 'Oak Door', solid: true, opaque: false, transparent: true, tiles: { all: 'planks' }, shape: 'door_open_E', drop: B.PLANKS }),
+  [B.DOOR_OPEN_L_S]: D({ name: 'Oak Door', solid: true, opaque: false, transparent: true, tiles: { all: 'planks' }, shape: 'door_open_S', drop: B.PLANKS }),
+  [B.DOOR_OPEN_L_W]: D({ name: 'Oak Door', solid: true, opaque: false, transparent: true, tiles: { all: 'planks' }, shape: 'door_open_W', drop: B.PLANKS }),
+  [B.DOOR_OPEN_U]: D({ name: 'Oak Door', solid: true, opaque: false, transparent: true, tiles: { all: 'planks' }, shape: 'door_open_U', drop: B.PLANKS }),
+  [B.TRAPDOOR]: D({ name: 'Trapdoor', solid: true, opaque: false, transparent: true, tiles: { all: 'trapdoor' }, shape: 'trapdoor', drop: B.PLANKS }),
+  [B.TRAPDOOR_OPEN]: D({ name: 'Trapdoor', solid: true, opaque: false, transparent: true, tiles: { all: 'trapdoor' }, shape: 'trapdoor_open', drop: B.PLANKS }),
+  [B.CHEST]: D({ name: 'Chest', solid: true, opaque: false, transparent: true, tiles: { all: 'chest_side', top: 'chest_top', bottom: 'chest_top', front: 'chest_front', xm: 'chest_front' }, shape: 'chest', drop: B.CHEST }),
+  [B.FURNACE]: D({ name: 'Furnace', solid: true, opaque: true, tiles: { all: 'furnace_side', top: 'furnace_top', bottom: 'furnace_top', front: 'furnace_front', xm: 'furnace_front' }, drop: B.FURNACE }),
+  [B.FURNACE_LIT]: D({ name: 'Furnace', solid: true, opaque: true, tiles: { all: 'furnace_side', top: 'furnace_top', bottom: 'furnace_top', front: 'furnace_front_lit', xm: 'furnace_front_lit' }, drop: B.FURNACE }),
+  [B.LADDER_N]: D({ name: 'Ladder', solid: false, opaque: false, transparent: true, tiles: { all: 'ladder' }, shape: 'ladder_N', drop: B.LADDER_N }),
+  [B.LADDER_E]: D({ name: 'Ladder', solid: false, opaque: false, transparent: true, tiles: { all: 'ladder' }, shape: 'ladder_E', drop: B.LADDER_E }),
+  [B.LADDER_S]: D({ name: 'Ladder', solid: false, opaque: false, transparent: true, tiles: { all: 'ladder' }, shape: 'ladder_S', drop: B.LADDER_S }),
+  [B.LADDER_W]: D({ name: 'Ladder', solid: false, opaque: false, transparent: true, tiles: { all: 'ladder' }, shape: 'ladder_W', drop: B.LADDER_W }),
+  [B.FARMLAND]: D({ name: 'Farmland', solid: true, opaque: true, tiles: { all: 'dirt', top: 'farmland' }, drop: B.DIRT }),
+  [B.WHEAT_YOUNG]: D({ name: 'Wheat', solid: false, opaque: false, transparent: true, tiles: { all: 'wheat' }, shape: 'crop', drop: IT.WHEAT_SEEDS }),
+  [B.WHEAT_MATURE]: D({ name: 'Wheat', solid: false, opaque: false, transparent: true, tiles: { all: 'wheat' }, shape: 'crop', drop: IT.WHEAT }),
+};
+Object.assign(BLOCKS, NEW_BLOCK_DEFS);
+
 export const ITEMS: Record<number, ItemDef> = {
   [IT.STICK]: { name: 'Stick', fuel: true },
   [IT.COAL]: { name: 'Coal', fuel: true },
@@ -156,9 +231,47 @@ export function itemName(id: number): string {
 export function blockDef(id: number): BlockDef | null { return id < 100 ? (BLOCKS[id] ?? null) : null; }
 export function itemDef(id: number): ItemDef | null { return id >= 100 ? (ITEMS[id] ?? null) : null; }
 export function isOpaque(id: number): boolean { const d = BLOCKS[id]; return !!d && d.opaque; }
-export function isSolid(id: number): boolean { const d = BLOCKS[id]; return !!d && d.solid; }
+export function isSolid(id: number): boolean {
+  if (id === B.DOOR_OPEN_L_N || id === B.DOOR_OPEN_L_E || id === B.DOOR_OPEN_L_S || id === B.DOOR_OPEN_L_W || id === B.DOOR_OPEN_U) return false;
+  const d = BLOCKS[id]; return !!d && d.solid;
+}
+export function isClimbable(id: number): boolean {
+  return id === B.LADDER_N || id === B.LADDER_E || id === B.LADDER_S || id === B.LADDER_W;
+}
+export function isDoorOpen(id: number): boolean {
+  return id === B.DOOR_OPEN_L_N || id === B.DOOR_OPEN_L_E || id === B.DOOR_OPEN_L_S || id === B.DOOR_OPEN_L_W || id === B.DOOR_OPEN_U;
+}
 export function isLiquid(id: number): boolean { const d = BLOCKS[id]; return !!d && !!d.liquid; }
 export function isItem(id: number): boolean { return id >= 100; }
+
+const NEW_ITEM_DEFS: Record<number, ItemDef> = {
+  [IT.FLINT]: { name: 'Flint' },
+  [IT.FEATHER]: { name: 'Feather' },
+  [IT.BUCKET]: { name: 'Bucket' },
+  [IT.WATER_BUCKET]: { name: 'Water Bucket' },
+  [IT.LAVA_BUCKET]: { name: 'Lava Bucket' },
+  [IT.BOW]: { name: 'Bow', projectile: true },
+  [IT.ARROW]: { name: 'Arrow', projectile: true },
+  [IT.WHEAT_SEEDS]: { name: 'Wheat Seeds' },
+  [IT.WHEAT]: { name: 'Wheat' },
+  [IT.BREAD]: { name: 'Bread', food: 5 },
+  [IT.WOOD_HOE]: { name: 'Wooden Hoe', tool: { type: 'hoe', tier: 0, speed: 2, damage: 1 } },
+  [IT.STONE_HOE]: { name: 'Stone Hoe', tool: { type: 'hoe', tier: 1, speed: 4, damage: 1 } },
+  [IT.IRON_HOE]: { name: 'Iron Hoe', tool: { type: 'hoe', tier: 2, speed: 6, damage: 1 } },
+  [IT.DIAMOND_HOE]: { name: 'Diamond Hoe', tool: { type: 'hoe', tier: 3, speed: 8, damage: 1 } },
+  [IT.IRON_HELMET]: { name: 'Iron Helmet', armor: { slot: 0, defense: 2 } },
+  [IT.IRON_CHESTPLATE]: { name: 'Iron Chestplate', armor: { slot: 1, defense: 5 } },
+  [IT.IRON_LEGGINGS]: { name: 'Iron Leggings', armor: { slot: 2, defense: 4 } },
+  [IT.IRON_BOOTS]: { name: 'Iron Boots', armor: { slot: 3, defense: 2 } },
+  [IT.DIA_HELMET]: { name: 'Diamond Helmet', armor: { slot: 0, defense: 3 } },
+  [IT.DIA_CHESTPLATE]: { name: 'Diamond Chestplate', armor: { slot: 1, defense: 8 } },
+  [IT.DIA_LEGGINGS]: { name: 'Diamond Leggings', armor: { slot: 2, defense: 6 } },
+  [IT.DIA_BOOTS]: { name: 'Diamond Boots', armor: { slot: 3, defense: 3 } },
+  [IT.EMERALD]: { name: 'Emerald' },
+  [IT.COOKED_PORKCHOP]: { name: 'Cooked Porkchop', food: 8 },
+  [IT.COOKED_STEAK]: { name: 'Cooked Steak', food: 8 },
+};
+Object.assign(ITEMS, NEW_ITEM_DEFS);
 
 export const HOTBAR_DEFAULT = [
   B.GRASS, B.DIRT, B.STONE, B.COBBLE, B.PLANKS, B.LOG, B.LEAVES, B.GLASS, B.TORCH,
@@ -174,12 +287,18 @@ export const CREATIVE_BLOCKS: number[] = [
   B.TORCH, B.FLOWER_RED, B.FLOWER_YELLOW, B.FLOWER_PINK, B.TALLGRASS,
   B.SLAB, B.VSLAB_X0, B.DIAMOND_BLOCK, B.GOLD_BLOCK, B.IRON_BLOCK, B.AMETHYST,
   B.WATER, B.LAVA, B.COAL_ORE, B.IRON_ORE, B.GOLD_ORE, B.DIAMOND_ORE, B.BEDROCK,
+  B.STAIRS_PLANKS_N, B.STAIRS_COBBLE_N, B.STAIRS_BRICK_N, B.STAIRS_SANDSTONE_N,
+  B.FENCE, B.DOOR_L_N, B.TRAPDOOR, B.CHEST, B.FURNACE, B.LADDER_N, B.FARMLAND, B.WHEAT_MATURE,
 ];
 
 export const CREATIVE_ITEMS: number[] = [
-  IT.APPLE, IT.PORKCHOP, IT.BEEF,
+  IT.APPLE, IT.PORKCHOP, IT.BEEF, IT.COOKED_PORKCHOP, IT.COOKED_STEAK, IT.BREAD, IT.WHEAT, IT.WHEAT_SEEDS, IT.FLINT, IT.FEATHER, IT.EMERALD,
   IT.WOOD_PICKAXE, IT.STONE_PICKAXE, IT.IRON_PICKAXE, IT.DIAMOND_PICKAXE,
   IT.WOOD_AXE, IT.STONE_AXE, IT.IRON_AXE, IT.DIAMOND_AXE,
   IT.WOOD_SHOVEL, IT.STONE_SHOVEL, IT.IRON_SHOVEL, IT.DIAMOND_SHOVEL,
   IT.WOOD_SWORD, IT.STONE_SWORD, IT.IRON_SWORD, IT.DIAMOND_SWORD,
+  IT.WOOD_HOE, IT.STONE_HOE, IT.IRON_HOE, IT.DIAMOND_HOE,
+  IT.IRON_HELMET, IT.IRON_CHESTPLATE, IT.IRON_LEGGINGS, IT.IRON_BOOTS,
+  IT.DIA_HELMET, IT.DIA_CHESTPLATE, IT.DIA_LEGGINGS, IT.DIA_BOOTS,
+  IT.BUCKET, IT.WATER_BUCKET, IT.LAVA_BUCKET, IT.BOW, IT.ARROW,
 ];

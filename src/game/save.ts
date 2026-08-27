@@ -2,7 +2,7 @@
 import type { Slot } from './items';
 
 export interface WorldSave {
-  v: 2;
+  v: 2 | 3;
   name: string;
   seed: number;
   mode: 'creative' | 'survival';
@@ -10,6 +10,7 @@ export interface WorldSave {
   player: { x: number; y: number; z: number; yaw: number; pitch: number };
   spawn: { x: number; y: number; z: number };
   inventory: ([number, number] | null)[] | null;
+  armor: ([number, number] | null)[] | null;
   health: number;
   hunger: number;
   timeOfDay: number;
@@ -17,6 +18,9 @@ export interface WorldSave {
   weather: 'clear' | 'rain' | 'snow' | 'thunder';
   waypoints: { name: string; x: number; y: number; z: number; color: string }[];
   aiSettings: { enabled: boolean; endpoint: string; apiKey: string; model: string } | null;
+  chests: Record<string, ([number, number] | null)[]> | null;
+  furnaces: Record<string, { input: [number, number] | null; fuel: [number, number] | null; output: [number, number] | null; progress: number; burn: number }> | null;
+  crops: Record<string, number> | null;
   savedAt: number;
 }
 

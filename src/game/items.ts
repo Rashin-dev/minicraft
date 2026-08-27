@@ -8,6 +8,7 @@ export const STACK_MAX = 64;
 
 export class Inventory {
   slots: (Slot)[] = new Array(36).fill(null); // 0-8 hotbar, 9-35 backpack
+  armor: (Slot)[] = new Array(4).fill(null); // 0 helmet,1 chest,2 legs,3 boots
   selected = 0;
   version = 0; // bump to re-render UI
 
@@ -74,6 +75,17 @@ export class Inventory {
     this.slots = data.map((d) => (d ? { id: d[0], count: d[1] } : null));
     this.touch();
   }
+  serializeArmor(): ([number, number] | null)[] { return this.armor.map((s) => (s ? [s.id, s.count] : null)); }
+  loadArmor(data: ([number, number] | null)[] | null | undefined) {
+    if (!data || data.length !== 4) return;
+    this.armor = data.map((d) => (d ? { id: d[0], count: d[1] } : null));
+    this.touch();
+  }
+  defensePoints(): number {
+    let d = 0;
+    for (const a of this.armor) if (a) d += (itemDef(a.id)?.armor?.defense ?? 0);
+    return d;
+  }
 }
 
 // ---------------- Crafting ----------------
@@ -121,6 +133,41 @@ for (let t = 0; t < 4; t++) {
     RECIPES.push({ out: id, outCount: 1, needs });
   }
 }
+
+// hoes & buckets & armor & food & arrows
+RECIPES.push(
+  { out: IT.BUCKET, outCount: 1, needs: [[IT.IRON_CHUNK, 3]] },
+  { out: IT.WOOD_HOE, outCount: 1, needs: [[B.PLANKS, 2], [IT.STICK, 2]] },
+  { out: IT.STONE_HOE, outCount: 1, needs: [[B.COBBLE, 2], [IT.STICK, 2]] },
+  { out: IT.IRON_HOE, outCount: 1, needs: [[IT.IRON_CHUNK, 2], [IT.STICK, 2]] },
+  { out: IT.DIAMOND_HOE, outCount: 1, needs: [[IT.DIAMOND, 2], [IT.STICK, 2]] },
+  { out: IT.ARROW, outCount: 4, needs: [[IT.FLINT, 1], [IT.STICK, 1], [IT.FEATHER, 1]] },
+  { out: IT.BREAD, outCount: 1, needs: [[IT.WHEAT, 3]] },
+  { out: IT.IRON_HELMET, outCount: 1, needs: [[IT.IRON_CHUNK, 5]] },
+  { out: IT.IRON_CHESTPLATE, outCount: 1, needs: [[IT.IRON_CHUNK, 8]] },
+  { out: IT.IRON_LEGGINGS, outCount: 1, needs: [[IT.IRON_CHUNK, 7]] },
+  { out: IT.IRON_BOOTS, outCount: 1, needs: [[IT.IRON_CHUNK, 4]] },
+  { out: IT.DIA_HELMET, outCount: 1, needs: [[IT.DIAMOND, 5]] },
+  { out: IT.DIA_CHESTPLATE, outCount: 1, needs: [[IT.DIAMOND, 8]] },
+  { out: IT.DIA_LEGGINGS, outCount: 1, needs: [[IT.DIAMOND, 7]] },
+  { out: IT.DIA_BOOTS, outCount: 1, needs: [[IT.DIAMOND, 4]] },
+);
+
+export interface SmeltDef { out: number; time: number; }
+export const SMELT: Record<number, SmeltDef> = {
+  [B.COBBLE]: { out: B.STONE, time: 4 },
+  [B.SAND]: { out: B.GLASS, time: 4 },
+  [B.LOG]: { out: IT.COAL, time: 6 },
+  [B.BIRCH_LOG]: { out: IT.COAL, time: 6 },
+  [B.SPRUCE_LOG]: { out: IT.COAL, time: 6 },
+  [B.CHERRY_LOG]: { out: IT.COAL, time: 6 },
+  [IT.PORKCHOP]: { out: IT.COOKED_PORKCHOP, time: 3 },
+  [IT.BEEF]: { out: IT.COOKED_STEAK, time: 3 },
+};
+// burn time in seconds per item
+export const FUEL: Record<number, number> = {
+  [IT.COAL]: 80, [B.PLANKS]: 15, [IT.STICK]: 5, [B.LOG]: 15, [B.BIRCH_LOG]: 15, [B.SPRUCE_LOG]: 15, [B.CHERRY_LOG]: 15,
+};
 
 // ---------------- item icons ----------------
 const iconCache = new Map<number, HTMLCanvasElement>();
