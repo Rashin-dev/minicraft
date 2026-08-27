@@ -151,6 +151,15 @@ RECIPES.push(
   { out: IT.DIA_CHESTPLATE, outCount: 1, needs: [[IT.DIAMOND, 8]] },
   { out: IT.DIA_LEGGINGS, outCount: 1, needs: [[IT.DIAMOND, 7]] },
   { out: IT.DIA_BOOTS, outCount: 1, needs: [[IT.DIAMOND, 4]] },
+  { out: IT.SHIELD, outCount: 1, needs: [[B.PLANKS, 6], [IT.IRON_CHUNK, 1]] },
+  { out: B.CONCRETE_WHITE, outCount: 8, needs: [[B.SAND, 4], [B.GRAVEL, 4], [B.WOOL_WHITE, 1]] },
+  { out: B.TERRACOTTA, outCount: 8, needs: [[B.COBBLE, 4], [B.SAND, 4]] },
+  { out: B.COPPER_BLOCK, outCount: 4, needs: [[IT.IRON_CHUNK, 4], [IT.GOLD_CHUNK, 2]] },
+  { out: B.CUT_COPPER, outCount: 4, needs: [[B.COPPER_BLOCK, 4]] },
+  { out: B.DEEPSLATE, outCount: 4, needs: [[B.COBBLE, 4], [IT.COAL, 1]] },
+  { out: B.COBBLED_DEEPSLATE, outCount: 4, needs: [[B.DEEPSLATE, 4]] },
+  { out: B.TINTED_GLASS, outCount: 4, needs: [[B.GLASS, 4], [IT.COAL, 1]] },
+  { out: B.ENCHANTING_TABLE, outCount: 1, needs: [[B.OBSIDIAN, 4], [B.BOOKSHELF, 2], [IT.DIAMOND, 2]] },
 );
 
 export interface SmeltDef { out: number; time: number; }
@@ -161,12 +170,15 @@ export const SMELT: Record<number, SmeltDef> = {
   [B.BIRCH_LOG]: { out: IT.COAL, time: 6 },
   [B.SPRUCE_LOG]: { out: IT.COAL, time: 6 },
   [B.CHERRY_LOG]: { out: IT.COAL, time: 6 },
+  [B.COBBLED_DEEPSLATE]: { out: B.DEEPSLATE, time: 4 },
+  [B.COPPER_BLOCK]: { out: B.CUT_COPPER, time: 3 },
   [IT.PORKCHOP]: { out: IT.COOKED_PORKCHOP, time: 3 },
   [IT.BEEF]: { out: IT.COOKED_STEAK, time: 3 },
 };
 // burn time in seconds per item
 export const FUEL: Record<number, number> = {
   [IT.COAL]: 80, [B.PLANKS]: 15, [IT.STICK]: 5, [B.LOG]: 15, [B.BIRCH_LOG]: 15, [B.SPRUCE_LOG]: 15, [B.CHERRY_LOG]: 15,
+  [B.COBBLED_DEEPSLATE]: 12, [B.DEEPSLATE]: 15,
 };
 
 // ---------------- item icons ----------------
@@ -175,10 +187,9 @@ const iconCache = new Map<number, HTMLCanvasElement>();
 export function itemIcon(id: number, atlas: HTMLCanvasElement | null): HTMLCanvasElement | null {
   const cached = iconCache.get(id);
   if (cached) return cached;
-  if (id < 100) {
+  if (BLOCKS[id]) {
     if (!atlas) return null;
-    const def = BLOCKS[id];
-    if (!def) return null;
+    const def = BLOCKS[id]!;
     const cv = document.createElement('canvas');
     cv.width = cv.height = 48;
     const ctx = cv.getContext('2d')!;
@@ -238,6 +249,9 @@ function drawItemIcon(g: CanvasRenderingContext2D, id: number) {
     case IT.PORKCHOP: P(5, 6, 7, 7, '#e8908a'); P(6, 7, 4, 3, '#f4b8b2'); P(4, 12, 2, 2, '#f4e8d8'); break;
     case IT.BEEF: P(5, 6, 7, 7, '#8a4a32'); P(6, 7, 4, 3, '#b06a48'); break;
     case IT.GUNPOWDER: P(5, 6, 6, 6, '#5a5a62'); P(7, 4, 2, 2, '#6a6a72'); P(9, 10, 2, 2, '#4a4a52'); break;
+    case IT.SHIELD: P(4, 3, 8, 11, '#8a8a9a'); P(5, 4, 6, 9, '#b0b0c0'); P(6, 5, 4, 3, '#d0d0e0'); P(7, 9, 2, 2, '#6a6a7a'); break;
+    case IT.XP_BOTTLE: P(6, 2, 4, 2, '#6a9a3a'); P(5, 4, 6, 8, '#7a3aba'); P(6, 5, 4, 6, '#9a5adA'); P(7, 6, 2, 2, '#c0a0ff'); break;
+    case IT.ENCHANTED_BOOK: P(3, 4, 10, 10, '#8a4a3a'); P(4, 5, 8, 8, '#a85a4a'); P(5, 6, 6, 2, '#ffd0a0'); P(6, 8, 4, 4, '#c0a0ff'); break;
     default: P(6, 6, 4, 4, '#cccccc');
   }
 }

@@ -27,9 +27,15 @@ export const B = {
   CHEST: 90, FURNACE: 91, FURNACE_LIT: 92,
   LADDER_N: 93, LADDER_E: 94, LADDER_S: 95, LADDER_W: 96,
   FARMLAND: 97, WHEAT_YOUNG: 98, WHEAT_MATURE: 99,
+  // modern families (151+ to avoid IT overlap, blockDef uses map lookup)
+  CONCRETE_WHITE: 151, CONCRETE_RED: 152, CONCRETE_BLUE: 153, CONCRETE_BLACK: 154, CONCRETE_GREEN: 155, CONCRETE_YELLOW: 156,
+  TERRACOTTA: 157, TERRACOTTA_RED: 158, TERRACOTTA_BLUE: 159,
+  COPPER_BLOCK: 160, CUT_COPPER: 161, EXPOSED_COPPER: 162, WEATHERED_COPPER: 163, OXIDIZED_COPPER: 164,
+  DEEPSLATE: 165, COBBLED_DEEPSLATE: 166, DEEPSLATE_BRICKS: 167, DEEPSLATE_TILES: 168,
+  TINTED_GLASS: 169, ENCHANTING_TABLE: 170,
 } as const;
 
-// Non-block items start at 100
+// Non-block items start at 100 (new items at 200+ to avoid B overlap)
 export const IT = {
   STICK: 100, COAL: 101, IRON_CHUNK: 102, GOLD_CHUNK: 103, DIAMOND: 104,
   APPLE: 105, PORKCHOP: 106, BEEF: 107, GUNPOWDER: 108,
@@ -43,6 +49,7 @@ export const IT = {
   IRON_HELMET: 140, IRON_CHESTPLATE: 141, IRON_LEGGINGS: 142, IRON_BOOTS: 143,
   DIA_HELMET: 144, DIA_CHESTPLATE: 145, DIA_LEGGINGS: 146, DIA_BOOTS: 147,
   EMERALD: 148, COOKED_PORKCHOP: 149, COOKED_STEAK: 150,
+  SHIELD: 200, XP_BOTTLE: 201, ENCHANTED_BOOK: 202,
 } as const;
 
 export type ToolType = 'pickaxe' | 'axe' | 'shovel' | 'sword' | 'hoe';
@@ -73,6 +80,7 @@ export interface ItemDef {
   fuel?: boolean; // seconds of furnace burn (multiplied)
   armor?: { slot: 0 | 1 | 2 | 3; defense: number };
   projectile?: boolean;
+  shield?: boolean;
 }
 
 type TileSet = { all?: string; top?: string; bottom?: string; front?: string; xm?: string };
@@ -196,6 +204,29 @@ const NEW_BLOCK_DEFS: Record<number, BlockDef> = {
   [B.WHEAT_MATURE]: D({ name: 'Wheat', solid: false, opaque: false, transparent: true, tiles: { all: 'wheat' }, shape: 'crop', drop: IT.WHEAT }),
 };
 Object.assign(BLOCKS, NEW_BLOCK_DEFS);
+const NEW2: Record<number, BlockDef> = {
+  [B.CONCRETE_WHITE]: D({ name: 'White Concrete', top: 'concrete_white', side: 'concrete_white', breakTime: 1.2, tool: 'pickaxe' }),
+  [B.CONCRETE_RED]: D({ name: 'Red Concrete', top: 'concrete_red', side: 'concrete_red', breakTime: 1.2, tool: 'pickaxe' }),
+  [B.CONCRETE_BLUE]: D({ name: 'Blue Concrete', top: 'concrete_blue', side: 'concrete_blue', breakTime: 1.2, tool: 'pickaxe' }),
+  [B.CONCRETE_BLACK]: D({ name: 'Black Concrete', top: 'concrete_black', side: 'concrete_black', breakTime: 1.2, tool: 'pickaxe' }),
+  [B.CONCRETE_GREEN]: D({ name: 'Green Concrete', top: 'concrete_green', side: 'concrete_green', breakTime: 1.2, tool: 'pickaxe' }),
+  [B.CONCRETE_YELLOW]: D({ name: 'Yellow Concrete', top: 'concrete_yellow', side: 'concrete_yellow', breakTime: 1.2, tool: 'pickaxe' }),
+  [B.TERRACOTTA]: D({ name: 'Terracotta', top: 'terracotta', side: 'terracotta', breakTime: 1.4, tool: 'pickaxe' }),
+  [B.TERRACOTTA_RED]: D({ name: 'Red Terracotta', top: 'terracotta_red', side: 'terracotta_red', breakTime: 1.4, tool: 'pickaxe' }),
+  [B.TERRACOTTA_BLUE]: D({ name: 'Blue Terracotta', top: 'terracotta_blue', side: 'terracotta_blue', breakTime: 1.4, tool: 'pickaxe' }),
+  [B.COPPER_BLOCK]: D({ name: 'Copper Block', top: 'copper', side: 'copper', breakTime: 1.8, tool: 'pickaxe' }),
+  [B.CUT_COPPER]: D({ name: 'Cut Copper', top: 'cut_copper', side: 'cut_copper', breakTime: 1.8, tool: 'pickaxe' }),
+  [B.EXPOSED_COPPER]: D({ name: 'Exposed Copper', top: 'exposed_copper', side: 'exposed_copper', breakTime: 1.8, tool: 'pickaxe' }),
+  [B.WEATHERED_COPPER]: D({ name: 'Weathered Copper', top: 'weathered_copper', side: 'weathered_copper', breakTime: 1.8, tool: 'pickaxe' }),
+  [B.OXIDIZED_COPPER]: D({ name: 'Oxidized Copper', top: 'oxidized_copper', side: 'oxidized_copper', breakTime: 1.8, tool: 'pickaxe' }),
+  [B.DEEPSLATE]: D({ name: 'Deepslate', top: 'deepslate', side: 'deepslate', breakTime: 2.2, tool: 'pickaxe' }),
+  [B.COBBLED_DEEPSLATE]: D({ name: 'Cobbled Deepslate', top: 'cobbled_deepslate', side: 'cobbled_deepslate', breakTime: 2.2, tool: 'pickaxe' }),
+  [B.DEEPSLATE_BRICKS]: D({ name: 'Deepslate Bricks', top: 'deepslate_bricks', side: 'deepslate_bricks', breakTime: 2.4, tool: 'pickaxe' }),
+  [B.DEEPSLATE_TILES]: D({ name: 'Deepslate Tiles', top: 'deepslate_tiles', side: 'deepslate_tiles', breakTime: 2.4, tool: 'pickaxe' }),
+  [B.TINTED_GLASS]: D({ name: 'Tinted Glass', top: 'tinted_glass', side: 'tinted_glass', opaque: false, transparent: true, breakTime: 0.3, drop: null }),
+  [B.ENCHANTING_TABLE]: D({ name: 'Enchanting Table', top: 'enchant_top', side: 'enchant_side', bottom: 'obsidian', breakTime: 2.5, tool: 'pickaxe' }),
+};
+Object.assign(BLOCKS, NEW2);
 
 export const ITEMS: Record<number, ItemDef> = {
   [IT.STICK]: { name: 'Stick', fuel: true },
@@ -221,15 +252,14 @@ for (const [type, tname] of TOOL_TYPES) {
 }
 
 export function defOf(id: number): BlockDef | ItemDef | null {
-  if (id < 100) return BLOCKS[id] ?? null;
-  return ITEMS[id] ?? null;
+  return (BLOCKS[id] as BlockDef | undefined) ?? (ITEMS[id] as ItemDef | undefined) ?? null;
 }
 export function itemName(id: number): string {
   const d = defOf(id);
   return d ? d.name : '???';
 }
-export function blockDef(id: number): BlockDef | null { return id < 100 ? (BLOCKS[id] ?? null) : null; }
-export function itemDef(id: number): ItemDef | null { return id >= 100 ? (ITEMS[id] ?? null) : null; }
+export function blockDef(id: number): BlockDef | null { return (BLOCKS[id] as BlockDef | undefined) ?? null; }
+export function itemDef(id: number): ItemDef | null { return (ITEMS[id] as ItemDef | undefined) ?? null; }
 export function isOpaque(id: number): boolean { const d = BLOCKS[id]; return !!d && d.opaque; }
 export function isSolid(id: number): boolean {
   if (id === B.DOOR_OPEN_L_N || id === B.DOOR_OPEN_L_E || id === B.DOOR_OPEN_L_S || id === B.DOOR_OPEN_L_W || id === B.DOOR_OPEN_U) return false;
@@ -242,7 +272,7 @@ export function isDoorOpen(id: number): boolean {
   return id === B.DOOR_OPEN_L_N || id === B.DOOR_OPEN_L_E || id === B.DOOR_OPEN_L_S || id === B.DOOR_OPEN_L_W || id === B.DOOR_OPEN_U;
 }
 export function isLiquid(id: number): boolean { const d = BLOCKS[id]; return !!d && !!d.liquid; }
-export function isItem(id: number): boolean { return id >= 100; }
+export function isItem(id: number): boolean { return !!(ITEMS[id] as ItemDef | undefined); }
 
 const NEW_ITEM_DEFS: Record<number, ItemDef> = {
   [IT.FLINT]: { name: 'Flint' },
@@ -270,6 +300,9 @@ const NEW_ITEM_DEFS: Record<number, ItemDef> = {
   [IT.EMERALD]: { name: 'Emerald' },
   [IT.COOKED_PORKCHOP]: { name: 'Cooked Porkchop', food: 8 },
   [IT.COOKED_STEAK]: { name: 'Cooked Steak', food: 8 },
+  [IT.SHIELD]: { name: 'Shield', shield: true },
+  [IT.XP_BOTTLE]: { name: 'Bottle o’ Enchanting' },
+  [IT.ENCHANTED_BOOK]: { name: 'Enchanted Book' },
 };
 Object.assign(ITEMS, NEW_ITEM_DEFS);
 
@@ -289,6 +322,9 @@ export const CREATIVE_BLOCKS: number[] = [
   B.WATER, B.LAVA, B.COAL_ORE, B.IRON_ORE, B.GOLD_ORE, B.DIAMOND_ORE, B.BEDROCK,
   B.STAIRS_PLANKS_N, B.STAIRS_COBBLE_N, B.STAIRS_BRICK_N, B.STAIRS_SANDSTONE_N,
   B.FENCE, B.DOOR_L_N, B.TRAPDOOR, B.CHEST, B.FURNACE, B.LADDER_N, B.FARMLAND, B.WHEAT_MATURE,
+  B.CONCRETE_WHITE, B.CONCRETE_RED, B.CONCRETE_BLUE, B.CONCRETE_BLACK, B.TERRACOTTA, B.TERRACOTTA_RED,
+  B.COPPER_BLOCK, B.CUT_COPPER, B.EXPOSED_COPPER, B.WEATHERED_COPPER, B.OXIDIZED_COPPER,
+  B.DEEPSLATE, B.COBBLED_DEEPSLATE, B.DEEPSLATE_BRICKS, B.DEEPSLATE_TILES, B.TINTED_GLASS, B.ENCHANTING_TABLE,
 ];
 
 export const CREATIVE_ITEMS: number[] = [
@@ -300,5 +336,5 @@ export const CREATIVE_ITEMS: number[] = [
   IT.WOOD_HOE, IT.STONE_HOE, IT.IRON_HOE, IT.DIAMOND_HOE,
   IT.IRON_HELMET, IT.IRON_CHESTPLATE, IT.IRON_LEGGINGS, IT.IRON_BOOTS,
   IT.DIA_HELMET, IT.DIA_CHESTPLATE, IT.DIA_LEGGINGS, IT.DIA_BOOTS,
-  IT.BUCKET, IT.WATER_BUCKET, IT.LAVA_BUCKET, IT.BOW, IT.ARROW,
+  IT.BUCKET, IT.WATER_BUCKET, IT.LAVA_BUCKET, IT.BOW, IT.ARROW, IT.SHIELD, IT.XP_BOTTLE, IT.ENCHANTED_BOOK,
 ];

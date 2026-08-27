@@ -84,14 +84,19 @@ export function generateChunk(seed: number, cx: number, cz: number): Uint8Array 
         continue;
       }
       if (y < h - 3) {
-        id = B.STONE;
-        const ore = hash3(x, y, z, seed + 77);
-        if (y < 14 && ore > 0.9965) id = B.DIAMOND_ORE;
-        else if (y < 24 && ore > 0.989) id = B.GOLD_ORE;
-        else if (y < 34 && ore > 0.976) id = B.IRON_ORE;
-        else if (ore > 0.962) id = B.COAL_ORE;
-        else if (hash3(x, y, z, seed + 99) > 0.975) id = hash3(x, y, z, 5) > 0.5 ? B.MOSS : B.COBBLE;
-        else if (biome === 'desert' && y > h - 8) id = B.SANDSTONE;
+        if (y < 6) {
+          id = hash3(x, y, z, seed + 88) > 0.5 ? B.DEEPSLATE : B.COBBLED_DEEPSLATE;
+          if (y === 5 && hash3(x, y, z, seed + 89) > 0.92) id = B.DEEPSLATE_BRICKS;
+        } else {
+          id = B.STONE;
+          const ore = hash3(x, y, z, seed + 77);
+          if (y < 14 && ore > 0.9965) id = B.DIAMOND_ORE;
+          else if (y < 24 && ore > 0.989) id = B.GOLD_ORE;
+          else if (y < 34 && ore > 0.976) id = B.IRON_ORE;
+          else if (ore > 0.962) id = B.COAL_ORE;
+          else if (hash3(x, y, z, seed + 99) > 0.975) id = hash3(x, y, z, 5) > 0.5 ? B.MOSS : B.COBBLE;
+          else if (biome === 'desert' && y > h - 8) id = B.SANDSTONE;
+        }
       } else if (y < h) {
         id = (desertish(biome) || beach) ? B.SAND : B.DIRT;
       } else {

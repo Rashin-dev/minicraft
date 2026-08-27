@@ -123,11 +123,14 @@ export class PostFX {
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, w: number, h: number) {
     this.composer = new EffectComposer(renderer);
     this.composer.addPass(new RenderPass(scene, camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.42, 0.55, 0.82);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.65, 0.72, 0.78);
     this.composer.addPass(this.bloom);
     this.godRays = new ShaderPass(GodRaysShader);
+    this.godRays.uniforms.uIntensity.value = 0.75;
     this.composer.addPass(this.godRays);
     this.grade = new ShaderPass(GradeShader);
+    this.grade.uniforms.uSaturation.value = 1.12;
+    this.grade.uniforms.uVignette.value = 0.28;
     this.composer.addPass(this.grade);
     this.composer.addPass(new OutputPass());
     this.setSize(w, h);

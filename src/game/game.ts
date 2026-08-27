@@ -41,6 +41,7 @@ export interface GameEvents {
   onModeChange: (mode: 'creative' | 'survival') => void;
   onInventory: () => void;
   onContainer: (c: { type: 'chest' | 'furnace'; key: string }) => void;
+  onXP: (level: number, progress: number) => void;
   onSleep: () => void;
   onLoading: (progress: number) => void;
   onBuildProgress: (name: string, done: number, total: number) => void;
@@ -68,6 +69,7 @@ export class Game {
   health = 20;
   hunger = 20;
   air = 10;
+  xp = 0; xpLevel = 0; xpProgress = 0;
   spawnPoint = { x: 8.5, y: 40, z: 8.5 };
   aiSettings: AISettings = { enabled: false, endpoint: 'https://api.openai.com/v1/chat/completions', apiKey: '', model: 'gpt-4o-mini' };
   ready = false;
@@ -515,13 +517,14 @@ export class Game {
       this.setBlockNet(hit.x, hit.y, hit.z, 0);
       const above = this.world.getBlock(hit.x, hit.y + 1, hit.z);
       if (above && blockDef(above)?.cross) this.setBlockNet(hit.x, hit.y + 1, hit.z, 0);
-      sounds.breakBlock();
+       sounds.breakBlock();
       this.particles.burst(new THREE.Vector3(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5), this.blockColor(hit.id), 14);
        if (this.mode === 'survival') {
         let drop = def.drop === undefined ? hit.id : def.drop;
         if (hit.id === B.LEAVES && Math.random() < 0.08) drop = IT.APPLE;
         if (hit.id === B.GRAVEL && Math.random() < 0.12) drop = IT.FLINT;
         if (drop) this.spawnDrop(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5, drop, 1);
+        if ([B.COAL_ORE, B.IRON_ORE, B.GOLD_ORE, B.DIAMOND_ORE, B.DEEPSLATE, B.COBBLED_DEEPSLATE].includes(hit.id)) this.addXP(2 + Math.floor(Math.random()*3));
       }
       this.breakTarget = null; this.breakProgress = 0;
     }
@@ -547,6 +550,7 @@ export class Game {
       if (isDoorOpen(hit.id) || hit.id === B.DOOR_L_N || hit.id === B.DOOR_L_E || hit.id === B.DOOR_L_S || hit.id === B.DOOR_L_W || hit.id === B.DOOR_U) {
         this.toggleDoor(hit.x, hit.y, hit.z); return;
       }
+      if (hit && hit.id === B.ENCHANTING_TABLE) { if (this.tryEnchant()) return; }
     }
     const held = this.heldItem();
     const food = itemDef(held)?.food;
@@ -853,6 +857,9 @@ export class Game {
 
   damage(amount: number) {
     if (this.dead || this.mode === 'creative') return;
+    // shield blocking (hold shield + sneak)
+    const held = this.heldItem();
+    if (held === IT.SHIELD && input.sneak) amount *= 0.33;
     const dp = this.inventory.defensePoints();
     const reduction = Math.min(0.8, dp * 0.04);
     const amt = amount * (1 - reduction);
@@ -860,6 +867,27 @@ export class Game {
     this.damageFlash = 1;
     sounds.hurt();
     if (this.health <= 0) this.die();
+  }
+  addXP(amount: number) {
+    this.xp += amount;
+    while (this.xp >= this.xpToNext()) { this.xp -= this.xpToNext(); this.xpLevel++; sounds.pop(); }
+    this.xpProgress = this.xp / this.xpToNext();
+    this.events.onXP?.(this.xpLevel, this.xpProgress);
+  }
+  private xpToNext(): number { return 7 + this.xpLevel * 2 + Math.floor(this.xpLevel * this.xpLevel * 0.25); }
+  tryEnchant(): boolean {
+    const hit = this.raycast();
+    if (!hit || hit.id !== B.ENCHANTING_TABLE) return false;
+    if (this.xpLevel < 3) { this.events.onToast('Need 3 levels'); return true; }
+    const held = this.heldItem();
+    const def = itemDef(held);
+    if (!def?.tool) { this.events.onToast('Hold a tool to enchant'); return true; }
+    this.xpLevel -= 3; this.xp = 0; this.xpProgress = 0;
+    this.events.onXP?.(this.xpLevel, 0);
+    this.inventory.remove(held, 1);
+    this.inventory.add(IT.ENCHANTED_BOOK, 1);
+    this.events.onToast('Enchanted!');
+    sounds.pop(); return true;
   }
 
   private die() {
@@ -982,6 +1010,7 @@ export class Game {
             const out = sm.out;
             if (!f.output) f.output = { id: out, count: 0 };
             f.output.count = Math.min(64, f.output.count + 1);
+            if (this.mode==='survival') this.addXP(1);
             sounds.pop();
           }
         }
@@ -1187,6 +1216,7 @@ export class Game {
       onDeath: (kind: MobKind) => {
         const drop = this.mobDrop(kind);
         if (drop && this.mode === 'survival') this.spawnDrop(this.mobs.find((m) => m.kind === kind)?.group.position.x ?? this.pos.x, this.pos.y + 0.5, this.pos.z, drop, 1);
+        if (this.mode === 'survival') this.addXP(3 + Math.floor(Math.random()*4));
       },
       burst: (pos: THREE.Vector3, color: number, count: number) => this.particles.burst(pos, color, count),
       explode: (pos: THREE.Vector3, radius: number) => this.explode(Math.floor(pos.x), Math.floor(pos.y), Math.floor(pos.z), radius),

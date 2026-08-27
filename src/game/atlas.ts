@@ -1,7 +1,7 @@
 // Procedurally generated 16x16 texture atlas (pixel-art, worker-safe: no DOM at import)
 export const TILE_SIZE = 16;
 export const ATLAS_COLS = 8;
-export const ATLAS_ROWS = 10;
+export const ATLAS_ROWS = 14;
 
 import { mulberry32 } from './noise';
 
@@ -406,6 +406,27 @@ tile('door_upper', (c, x, y) => {
   c.fillStyle = 'rgb(110,70,38)';
   for (let j = 0; j < 16; j += 4) c.fillRect(x+1, y+j, 14, 1);
 });
+tile('concrete_white', (c, x, y) => speckle(c, x, y, [212, 212, 212], 10, [[198,198,198],[228,228,228]], 8));
+tile('concrete_red', (c, x, y) => speckle(c, x, y, [160, 38, 32], 14, [[140,30,28],[180,50,42]], 8));
+tile('concrete_blue', (c, x, y) => speckle(c, x, y, [52, 78, 170], 14, [[42,62,150],[70,96,190]], 8));
+tile('concrete_black', (c, x, y) => speckle(c, x, y, [22, 22, 24], 10, [[16,16,18],[34,34,36]], 8));
+tile('concrete_green', (c, x, y) => speckle(c, x, y, [74, 120, 42], 14, [[62,100,34],[88,138,52]], 8));
+tile('concrete_yellow', (c, x, y) => speckle(c, x, y, [212, 182, 42], 14, [[192,162,32],[228,200,52]], 8));
+tile('terracotta', (c, x, y) => speckle(c, x, y, [158, 92, 66], 18, [[142,80,56],[176,106,78]], 10));
+tile('terracotta_red', (c, x, y) => speckle(c, x, y, [142, 62, 42], 16, [[120,50,36],[162,78,52]], 10));
+tile('terracotta_blue', (c, x, y) => speckle(c, x, y, [88, 92, 122], 16, [[72,78,108],[102,108,138]], 10));
+tile('copper', (c, x, y) => speckle(c, x, y, [184, 108, 72], 18, [[168,92,58],[200,124,86]], 12));
+tile('cut_copper', (c, x, y) => { speckle(c, x, y, [184, 108, 72], 12, [[168,92,58],[200,124,86]], 8); c.strokeStyle='rgb(140,76,44)'; c.strokeRect(x+0.5,y+0.5,15,15); c.strokeRect(x+4.5,y+4.5,7,7); });
+tile('exposed_copper', (c, x, y) => speckle(c, x, y, [162, 142, 112], 16, [[148,128,96],[176,156,124]], 12));
+tile('weathered_copper', (c, x, y) => speckle(c, x, y, [108, 142, 122], 16, [[92,128,108],[124,156,136]], 12));
+tile('oxidized_copper', (c, x, y) => speckle(c, x, y, [84, 158, 142], 16, [[70,142,128],[98,172,156]], 12));
+tile('deepslate', (c, x, y) => speckle(c, x, y, [74, 74, 78], 20, [[58,58,62],[90,90,94]], 16));
+tile('cobbled_deepslate', (c, x, y) => { noiseFill(c, x, y, [74,74,78], 22); c.fillStyle='rgb(52,52,56)'; for(let i=0;i<16;i+=4){c.fillRect(x,y+i,16,1); c.fillRect(x+((i/4)%2?4:8),y,1,16);} });
+tile('deepslate_bricks', (c, x, y) => { speckle(c, x, y, [74,74,78], 14, [[58,58,62],[90,90,94]], 10); c.fillStyle='rgb(52,52,56)'; c.fillRect(x,y+7,16,1); c.fillRect(x+7,y,1,8); c.fillRect(x+3,y+8,1,8); c.fillRect(x+11,y+8,1,8); });
+tile('deepslate_tiles', (c, x, y) => { speckle(c, x, y, [74,74,78], 12, [[58,58,62],[90,90,94]], 8); c.strokeStyle='rgb(52,52,56)'; for(let i=0;i<16;i+=4){c.strokeRect(x+i+0.5,y+i+0.5,3,3);} });
+tile('tinted_glass', (c, x, y) => { c.clearRect(x,y,16,16); c.fillStyle='rgba(20,20,24,0.55)'; c.fillRect(x,y,16,16); c.strokeStyle='rgb(50,50,56)'; c.strokeRect(x+0.5,y+0.5,15,15); });
+tile('enchant_top', (c, x, y) => { speckle(c, x, y, [74, 62, 102], 16, [[60,50,88],[90,76,118]], 10); c.fillStyle='rgb(180,60,60)'; c.fillRect(x+6,y+6,4,4); });
+tile('enchant_side', (c, x, y) => { tileDefs[TILES['obsidian']].draw(c,x,y); c.fillStyle='rgb(110,60,160)'; c.fillRect(x+2,y+2,12,12); c.fillStyle='rgb(180,140,255)'; c.fillRect(x+4,y+4,8,8); });
 
 export function buildAtlas(): { texture: HTMLCanvasElement; uvFor: (tileIdx: number) => [number, number, number, number] } {
   const canvas = document.createElement('canvas');

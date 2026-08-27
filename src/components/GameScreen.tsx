@@ -46,6 +46,8 @@ export function GameScreen({ worldName, seed, mode, saved, onExit }: Props) {
   const [health, setHealth] = useState(20);
   const [hunger, setHunger] = useState(20);
   const [air, setAir] = useState(10);
+  const [xpLevel, setXpLevel] = useState(0);
+  const [xpProgress, setXpProgress] = useState(0);
   const [dead, setDead] = useState(false);
   const [sleeping, setSleeping] = useState(false);
   const [loading, setLoading] = useState(0);
@@ -90,6 +92,7 @@ export function GameScreen({ worldName, seed, mode, saved, onExit }: Props) {
       onChatOpen: (prefill) => { setChatPrefill(prefill); setChatOpen(true); window.setTimeout(() => chatInputRef.current?.focus(), 30); },
       onHealth: (hp, hu, air2) => { setHealth(hp); setHunger(hu); setAir(air2); },
       onBow: (c) => setBowCharge(c),
+      onXP: (lvl, prog) => { setXpLevel(lvl); setXpProgress(prog); },
       onContainer: (c) => setContainer(c),
       onDeath: () => setDead(true),
       onModeChange: (m) => setGameMode(m),
@@ -326,6 +329,14 @@ export function GameScreen({ worldName, seed, mode, saved, onExit }: Props) {
       {survival && air < 10 && (
         <div className="pointer-events-none absolute bottom-24 left-1/2 flex -translate-x-1/2 gap-1">
           {Array.from({ length: air }, (_, i) => <span key={i} className="h-2.5 w-2.5 rounded-full bg-sky-300" />)}
+        </div>
+      )}
+      {survival && (
+        <div className="pointer-events-none absolute bottom-[68px] left-1/2 w-[260px] -translate-x-1/2">
+          <div className="h-1.5 overflow-hidden rounded bg-black/50">
+            <div className="h-full bg-emerald-400 transition-all" style={{ width: `${xpProgress * 100}%` }} />
+          </div>
+          <div className="mt-0.5 text-center text-[10px] font-bold text-emerald-300" style={{ textShadow: '0 1px 2px #000' }}>Lv {xpLevel} {xpLevel >= 3 && game?.inventory.slots[slot] && itemDef(game.inventory.slots[slot]!.id)?.tool ? '· Enchant ready (hit table)' : ''}</div>
         </div>
       )}
 
