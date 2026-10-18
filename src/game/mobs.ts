@@ -57,6 +57,7 @@ export class Mob {
   private growTimer = 0;
   trades: { inId: number; inCount: number; outId: number; outCount: number; done: number }[] = [];
   tamed = false;
+  sheared = false;
 
   constructor(kind: MobKind, x: number, y: number, z: number, baby = false) {
     this.kind = kind;

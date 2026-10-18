@@ -569,6 +569,7 @@ export class Game {
       sounds.pop(); this.events.onToast('Healed!'); this.swing(); return;
     }
     if (held === IT.SADDLE && this.trySaddle()) return;
+    if (held === IT.SHEARS && this.tryShear()) return;
     const food = itemDef(held)?.food;
     if (food && this.mode === 'survival' && this.hunger < 20 && this.eatCd <= 0) {
       this.hunger = Math.min(20, this.hunger + food);
@@ -1606,6 +1607,20 @@ export class Game {
     this.fishing = { t: 2 + Math.random() * 2.5 };
     this.events.onToast('Line cast...');
     this.swing();
+  }
+
+  private tryShear(): boolean {
+    for (const m of this.mobs) {
+      if (m.kind !== 'sheep' || m.sheared) continue;
+      if (m.group.position.distanceTo(this.pos) < 4.5) {
+        m.sheared = true;
+        this.inventory.add(B.WOOL_WHITE, 1 + Math.floor(Math.random() * 3));
+        this.particles.burst(m.group.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xeeeeee, 12);
+        this.events.onToast('Sheared!');
+        this.swing(); return true;
+      }
+    }
+    return false;
   }
 
   private trySaddle(): boolean {

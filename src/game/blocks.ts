@@ -29,6 +29,8 @@ export const B = {
   FARMLAND: 97, WHEAT_YOUNG: 98, WHEAT_MATURE: 99,
   // modern families (151+ to avoid IT overlap, blockDef uses map lookup)
   CONCRETE_WHITE: 151, CONCRETE_RED: 152, CONCRETE_BLUE: 153, CONCRETE_BLACK: 154, CONCRETE_GREEN: 155, CONCRETE_YELLOW: 156,
+  WOOL_ORANGE: 178, WOOL_MAGENTA: 179, WOOL_LIGHT_BLUE: 180, WOOL_LIME: 181, WOOL_PINK: 182, WOOL_GRAY: 183, WOOL_LIGHT_GRAY: 184, WOOL_CYAN: 185, WOOL_PURPLE: 186, WOOL_BROWN: 187,
+  CONCRETE_ORANGE: 188, CONCRETE_MAGENTA: 189, CONCRETE_LIGHT_BLUE: 190, CONCRETE_LIME: 191, CONCRETE_PINK: 192, CONCRETE_GRAY: 193, CONCRETE_LIGHT_GRAY: 194, CONCRETE_CYAN: 195, CONCRETE_PURPLE: 196, CONCRETE_BROWN: 197,
   TERRACOTTA: 157, TERRACOTTA_RED: 158, TERRACOTTA_BLUE: 159,
   COPPER_BLOCK: 160, CUT_COPPER: 161, EXPOSED_COPPER: 162, WEATHERED_COPPER: 163, OXIDIZED_COPPER: 164,
   DEEPSLATE: 165, COBBLED_DEEPSLATE: 166, DEEPSLATE_BRICKS: 167, DEEPSLATE_TILES: 168,
@@ -54,6 +56,7 @@ export const IT = {
   SHIELD: 200, XP_BOTTLE: 201, ENCHANTED_BOOK: 202,
   REDSTONE_DUST: 203, FISHING_ROD: 204, SPLASH_POTION: 205, SADDLE: 206, STRING: 207,
   RAW_FISH: 208, COOKED_FISH: 209,
+  SHEARS: 210,
 } as const;
 
 export type ToolType = 'pickaxe' | 'axe' | 'shovel' | 'sword' | 'hoe';
@@ -215,6 +218,26 @@ const NEW2: Record<number, BlockDef> = {
   [B.CONCRETE_BLACK]: D({ name: 'Black Concrete', top: 'concrete_black', side: 'concrete_black', breakTime: 1.2, tool: 'pickaxe' }),
   [B.CONCRETE_GREEN]: D({ name: 'Green Concrete', top: 'concrete_green', side: 'concrete_green', breakTime: 1.2, tool: 'pickaxe' }),
   [B.CONCRETE_YELLOW]: D({ name: 'Yellow Concrete', top: 'concrete_yellow', side: 'concrete_yellow', breakTime: 1.2, tool: 'pickaxe' }),
+  [B.WOOL_ORANGE]: D({ name: 'Orange Wool', top: 'wool_orange', side: 'wool_orange', breakTime: 0.6 }),
+  [B.WOOL_MAGENTA]: D({ name: 'Magenta Wool', top: 'wool_magenta', side: 'wool_magenta', breakTime: 0.6 }),
+  [B.WOOL_LIGHT_BLUE]: D({ name: 'Light Blue Wool', top: 'wool_light_blue', side: 'wool_light_blue', breakTime: 0.6 }),
+  [B.WOOL_LIME]: D({ name: 'Lime Wool', top: 'wool_lime', side: 'wool_lime', breakTime: 0.6 }),
+  [B.WOOL_PINK]: D({ name: 'Pink Wool', top: 'wool_pink', side: 'wool_pink', breakTime: 0.6 }),
+  [B.WOOL_GRAY]: D({ name: 'Gray Wool', top: 'wool_gray', side: 'wool_gray', breakTime: 0.6 }),
+  [B.WOOL_LIGHT_GRAY]: D({ name: 'Light Gray Wool', top: 'wool_light_gray', side: 'wool_light_gray', breakTime: 0.6 }),
+  [B.WOOL_CYAN]: D({ name: 'Cyan Wool', top: 'wool_cyan', side: 'wool_cyan', breakTime: 0.6 }),
+  [B.WOOL_PURPLE]: D({ name: 'Purple Wool', top: 'wool_purple', side: 'wool_purple', breakTime: 0.6 }),
+  [B.WOOL_BROWN]: D({ name: 'Brown Wool', top: 'wool_brown', side: 'wool_brown', breakTime: 0.6 }),
+  [B.CONCRETE_ORANGE]: D({ name: 'Orange Concrete', top: 'concrete_orange', side: 'concrete_orange', breakTime: 1.2, tool: 'pickaxe' }),
+  [B.CONCRETE_MAGENTA]: D({ name: 'Magenta Concrete', top: 'concrete_magenta', side: 'concrete_magenta', breakTime: 1.2, tool: 'pickaxe' }),
+  [B.CONCRETE_LIGHT_BLUE]: D({ name: 'Light Blue Concrete', top: 'concrete_light_blue', side: 'concrete_light_blue', breakTime: 1.2, tool: 'pickaxe' }),
+  [B.CONCRETE_LIME]: D({ name: 'Lime Concrete', top: 'concrete_lime', side: 'concrete_lime', breakTime: 1.2, tool: 'pickaxe' }),
+  [B.CONCRETE_PINK]: D({ name: 'Pink Concrete', top: 'concrete_pink', side: 'concrete_pink', breakTime: 1.2, tool: 'pickaxe' }),
+  [B.CONCRETE_GRAY]: D({ name: 'Gray Concrete', top: 'concrete_gray', side: 'concrete_gray', breakTime: 1.2, tool: 'pickaxe' }),
+  [B.CONCRETE_LIGHT_GRAY]: D({ name: 'Light Gray Concrete', top: 'concrete_light_gray', side: 'concrete_light_gray', breakTime: 1.2, tool: 'pickaxe' }),
+  [B.CONCRETE_CYAN]: D({ name: 'Cyan Concrete', top: 'concrete_cyan', side: 'concrete_cyan', breakTime: 1.2, tool: 'pickaxe' }),
+  [B.CONCRETE_PURPLE]: D({ name: 'Purple Concrete', top: 'concrete_purple', side: 'concrete_purple', breakTime: 1.2, tool: 'pickaxe' }),
+  [B.CONCRETE_BROWN]: D({ name: 'Brown Concrete', top: 'concrete_brown', side: 'concrete_brown', breakTime: 1.2, tool: 'pickaxe' }),
   [B.TERRACOTTA]: D({ name: 'Terracotta', top: 'terracotta', side: 'terracotta', breakTime: 1.4, tool: 'pickaxe' }),
   [B.TERRACOTTA_RED]: D({ name: 'Red Terracotta', top: 'terracotta_red', side: 'terracotta_red', breakTime: 1.4, tool: 'pickaxe' }),
   [B.TERRACOTTA_BLUE]: D({ name: 'Blue Terracotta', top: 'terracotta_blue', side: 'terracotta_blue', breakTime: 1.4, tool: 'pickaxe' }),
@@ -321,6 +344,7 @@ const NEW_ITEM_DEFS: Record<number, ItemDef> = {
   [IT.STRING]: { name: 'String' },
   [IT.RAW_FISH]: { name: 'Raw Fish', food: 2 },
   [IT.COOKED_FISH]: { name: 'Cooked Fish', food: 6 },
+  [IT.SHEARS]: { name: 'Shears' },
 };
 Object.assign(ITEMS, NEW_ITEM_DEFS);
 
@@ -341,6 +365,8 @@ export const CREATIVE_BLOCKS: number[] = [
   B.STAIRS_PLANKS_N, B.STAIRS_COBBLE_N, B.STAIRS_BRICK_N, B.STAIRS_SANDSTONE_N,
   B.FENCE, B.DOOR_L_N, B.TRAPDOOR, B.CHEST, B.FURNACE, B.LADDER_N, B.FARMLAND, B.WHEAT_MATURE,
   B.CONCRETE_WHITE, B.CONCRETE_RED, B.CONCRETE_BLUE, B.CONCRETE_BLACK, B.TERRACOTTA, B.TERRACOTTA_RED,
+  B.WOOL_ORANGE, B.WOOL_MAGENTA, B.WOOL_LIGHT_BLUE, B.WOOL_LIME, B.WOOL_PINK, B.WOOL_GRAY, B.WOOL_LIGHT_GRAY, B.WOOL_CYAN, B.WOOL_PURPLE, B.WOOL_BROWN,
+  B.CONCRETE_ORANGE, B.CONCRETE_MAGENTA, B.CONCRETE_LIGHT_BLUE, B.CONCRETE_LIME, B.CONCRETE_PINK, B.CONCRETE_GRAY, B.CONCRETE_LIGHT_GRAY, B.CONCRETE_CYAN, B.CONCRETE_PURPLE, B.CONCRETE_BROWN,
   B.COPPER_BLOCK, B.CUT_COPPER, B.EXPOSED_COPPER, B.WEATHERED_COPPER, B.OXIDIZED_COPPER,
   B.DEEPSLATE, B.COBBLED_DEEPSLATE, B.DEEPSLATE_BRICKS, B.DEEPSLATE_TILES, B.TINTED_GLASS, B.ENCHANTING_TABLE,
   B.REDSTONE_WIRE, B.REDSTONE_TORCH, B.PISTON, B.NETHER_PORTAL, B.NETHERRACK, B.SOUL_SAND, B.END_STONE,
@@ -357,4 +383,5 @@ export const CREATIVE_ITEMS: number[] = [
   IT.DIA_HELMET, IT.DIA_CHESTPLATE, IT.DIA_LEGGINGS, IT.DIA_BOOTS,
   IT.BUCKET, IT.WATER_BUCKET, IT.LAVA_BUCKET, IT.BOW, IT.ARROW, IT.SHIELD, IT.XP_BOTTLE, IT.ENCHANTED_BOOK,
   IT.REDSTONE_DUST, IT.FISHING_ROD, IT.SPLASH_POTION, IT.SADDLE, IT.STRING, IT.RAW_FISH, IT.COOKED_FISH,
+  IT.SHEARS,
 ];

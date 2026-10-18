@@ -165,6 +165,8 @@ RECIPES.push(
   { out: B.NETHERRACK, outCount: 4, needs: [[B.COBBLE, 4], [IT.COAL, 1]] },
   { out: B.END_STONE, outCount: 4, needs: [[B.SANDSTONE, 4], [IT.EMERALD, 1]] },
   { out: IT.FISHING_ROD, outCount: 1, needs: [[IT.STICK, 3], [IT.STRING, 2]] },
+  { out: IT.SHEARS, outCount: 1, needs: [[IT.IRON_CHUNK, 2]] },
+  { out: B.WOOL_WHITE, outCount: 1, needs: [[IT.STRING, 4]] },
 );
 
 export interface SmeltDef { out: number; time: number; }
@@ -262,6 +264,7 @@ function drawItemIcon(g: CanvasRenderingContext2D, id: number) {
     case IT.STRING: P(4, 3, 2, 10, '#e0e0e0'); P(8, 4, 2, 9, '#d0d0d0'); P(4, 7, 6, 1, '#f0f0f0'); break;
     case IT.RAW_FISH: P(2, 6, 11, 5, '#8fb8c8'); P(1, 8, 2, 2, '#6a93a5'); P(12, 7, 3, 3, '#c8e0ea'); break;
     case IT.COOKED_FISH: P(2, 6, 11, 5, '#b07a4a'); P(1, 8, 2, 2, '#8a5a34'); P(12, 7, 3, 3, '#d8a878'); break;
+    case IT.SHEARS: P(3, 3, 4, 4, '#c8c8d0'); P(4, 4, 2, 2, '#9a9aa8'); P(9, 9, 4, 4, '#c8c8d0'); P(10, 10, 2, 2, '#9a9aa8'); P(6, 6, 4, 1, '#8a8a96'); P(6, 9, 1, 4, '#8a8a96'); break;
     case IT.SHIELD: P(4, 3, 8, 11, '#8a8a9a'); P(5, 4, 6, 9, '#b0b0c0'); P(6, 5, 4, 3, '#d0d0e0'); P(7, 9, 2, 2, '#6a6a7a'); break;
     case IT.XP_BOTTLE: P(6, 2, 4, 2, '#6a9a3a'); P(5, 4, 6, 8, '#7a3aba'); P(6, 5, 4, 6, '#9a5adA'); P(7, 6, 2, 2, '#c0a0ff'); break;
     case IT.ENCHANTED_BOOK: P(3, 4, 10, 10, '#8a4a3a'); P(4, 5, 8, 8, '#a85a4a'); P(5, 6, 6, 2, '#ffd0a0'); P(6, 8, 4, 4, '#c0a0ff'); break;

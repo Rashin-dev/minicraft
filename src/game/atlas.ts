@@ -1,7 +1,7 @@
 // Procedurally generated 16x16 texture atlas (pixel-art, worker-safe: no DOM at import)
 export const TILE_SIZE = 16;
 export const ATLAS_COLS = 8;
-export const ATLAS_ROWS = 14;
+export const ATLAS_ROWS = 16;
 
 import { mulberry32 } from './noise';
 
@@ -412,6 +412,26 @@ tile('concrete_blue', (c, x, y) => speckle(c, x, y, [52, 78, 170], 14, [[42,62,1
 tile('concrete_black', (c, x, y) => speckle(c, x, y, [22, 22, 24], 10, [[16,16,18],[34,34,36]], 8));
 tile('concrete_green', (c, x, y) => speckle(c, x, y, [74, 120, 42], 14, [[62,100,34],[88,138,52]], 8));
 tile('concrete_yellow', (c, x, y) => speckle(c, x, y, [212, 182, 42], 14, [[192,162,32],[228,200,52]], 8));
+tile('wool_orange', (c, x, y) => speckle(c, x, y, [240, 118, 19], 22, [[220, 100, 10], [255, 138, 40]], 16));
+tile('wool_magenta', (c, x, y) => speckle(c, x, y, [189, 68, 179], 22, [[168, 52, 158], [210, 88, 198]], 16));
+tile('wool_light_blue', (c, x, y) => speckle(c, x, y, [58, 175, 217], 22, [[40, 152, 196], [80, 196, 234]], 16));
+tile('wool_lime', (c, x, y) => speckle(c, x, y, [112, 185, 25], 22, [[94, 164, 16], [132, 206, 40]], 16));
+tile('wool_pink', (c, x, y) => speckle(c, x, y, [237, 141, 172], 22, [[216, 120, 152], [252, 162, 192]], 16));
+tile('wool_gray', (c, x, y) => speckle(c, x, y, [62, 68, 71], 22, [[48, 54, 57], [78, 84, 88]], 16));
+tile('wool_light_gray', (c, x, y) => speckle(c, x, y, [142, 142, 134], 22, [[124, 124, 116], [162, 162, 152]], 16));
+tile('wool_cyan', (c, x, y) => speckle(c, x, y, [21, 137, 145], 22, [[12, 116, 124], [36, 158, 166]], 16));
+tile('wool_purple', (c, x, y) => speckle(c, x, y, [121, 42, 172], 22, [[102, 30, 150], [142, 60, 194]], 16));
+tile('wool_brown', (c, x, y) => speckle(c, x, y, [114, 71, 40], 22, [[96, 58, 30], [134, 88, 52]], 16));
+tile('concrete_orange', (c, x, y) => speckle(c, x, y, [224, 97, 0], 12, [[204, 82, 0], [244, 112, 15]], 8));
+tile('concrete_magenta', (c, x, y) => speckle(c, x, y, [169, 48, 159], 12, [[150, 38, 140], [190, 62, 180]], 8));
+tile('concrete_light_blue', (c, x, y) => speckle(c, x, y, [36, 137, 199], 12, [[26, 118, 180], [52, 158, 220]], 8));
+tile('concrete_lime', (c, x, y) => speckle(c, x, y, [94, 168, 24], 12, [[78, 148, 16], [112, 188, 36]], 8));
+tile('concrete_pink', (c, x, y) => speckle(c, x, y, [213, 101, 145], 12, [[194, 86, 128], [232, 120, 164]], 8));
+tile('concrete_gray', (c, x, y) => speckle(c, x, y, [54, 57, 61], 12, [[42, 45, 48], [68, 72, 76]], 8));
+tile('concrete_light_gray', (c, x, y) => speckle(c, x, y, [125, 125, 115], 12, [[110, 110, 100], [142, 142, 132]], 8));
+tile('concrete_cyan', (c, x, y) => speckle(c, x, y, [21, 119, 136], 12, [[12, 100, 116], [34, 140, 158]], 8));
+tile('concrete_purple', (c, x, y) => speckle(c, x, y, [100, 32, 156], 12, [[84, 24, 136], [118, 46, 176]], 8));
+tile('concrete_brown', (c, x, y) => speckle(c, x, y, [96, 60, 32], 12, [[80, 48, 24], [114, 74, 42]], 8));
 tile('terracotta', (c, x, y) => speckle(c, x, y, [158, 92, 66], 18, [[142,80,56],[176,106,78]], 10));
 tile('terracotta_red', (c, x, y) => speckle(c, x, y, [142, 62, 42], 16, [[120,50,36],[162,78,52]], 10));
 tile('terracotta_blue', (c, x, y) => speckle(c, x, y, [88, 92, 122], 16, [[72,78,108],[102,108,138]], 10));
