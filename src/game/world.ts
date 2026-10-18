@@ -1,18 +1,19 @@
 // Main-thread World: block storage fed by the worker, edits, raycasts, physics queries
 import { B, blockDef, isSolid } from './blocks';
-import { CHUNK, WORLD_H, SEA, heightAt, biomeAt, generateChunk } from './terrain';
+import { CHUNK, WORLD_H, SEA, heightAt, biomeAt, generateChunk, generateNetherChunk } from './terrain';
 
 export { CHUNK, WORLD_H, SEA };
 export type { BiomeId } from './terrain';
 
 export class World {
   seed: number;
+  dim: 'overworld' | 'nether';
   chunks = new Map<string, Uint8Array>();
   diffs = new Map<string, number>();
   dirtyChunks = new Set<string>();
   private heightCache = new Map<string, number>();
 
-  constructor(seed: number) { this.seed = seed; }
+  constructor(seed: number, dim: 'overworld' | 'nether' = 'overworld') { this.seed = seed; this.dim = dim; }
 
   static key(cx: number, cz: number) { return cx + ',' + cz; }
 
@@ -58,7 +59,7 @@ export class World {
   private getOrGen(cx: number, cz: number): Uint8Array {
     const k = World.key(cx, cz);
     let c = this.chunks.get(k);
-    if (!c) { c = generateChunk(this.seed, cx, cz); this.chunks.set(k, c); }
+    if (!c) { c = this.dim === 'nether' ? generateNetherChunk(this.seed, cx, cz) : generateChunk(this.seed, cx, cz); this.chunks.set(k, c); }
     return c;
   }
 
@@ -77,11 +78,20 @@ export class World {
       }
       return 0;
     }
+    if (this.dim === 'nether') return 20;
     return heightAt(Math.floor(x), Math.floor(z), this.seed);
   }
 
   biomeAt2(x: number, z: number) {
     return biomeAt(Math.floor(x), Math.floor(z), this.seed, this.surfaceYAt(x, z));
+  }
+
+  groundYBelow(x: number, z: number, from = WORLD_H - 4): number {
+    for (let y = from; y >= 1; y--) {
+      const id = this.getBlock(x, y, z);
+      if (id !== 0 && id !== B.WATER && id !== B.LAVA && !blockDef(id)?.cross && !blockDef(id)?.torchLike) return y;
+    }
+    return 4;
   }
 
   isSolidAt(x: number, y: number, z: number): boolean { return isSolid(this.getBlock(x, y, z)); }

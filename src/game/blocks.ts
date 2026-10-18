@@ -33,6 +33,8 @@ export const B = {
   COPPER_BLOCK: 160, CUT_COPPER: 161, EXPOSED_COPPER: 162, WEATHERED_COPPER: 163, OXIDIZED_COPPER: 164,
   DEEPSLATE: 165, COBBLED_DEEPSLATE: 166, DEEPSLATE_BRICKS: 167, DEEPSLATE_TILES: 168,
   TINTED_GLASS: 169, ENCHANTING_TABLE: 170,
+  REDSTONE_WIRE: 171, REDSTONE_TORCH: 172, PISTON: 173, NETHER_PORTAL: 174,
+  NETHERRACK: 175, SOUL_SAND: 176, END_STONE: 177,
 } as const;
 
 // Non-block items start at 100 (new items at 200+ to avoid B overlap)
@@ -50,6 +52,8 @@ export const IT = {
   DIA_HELMET: 144, DIA_CHESTPLATE: 145, DIA_LEGGINGS: 146, DIA_BOOTS: 147,
   EMERALD: 148, COOKED_PORKCHOP: 149, COOKED_STEAK: 150,
   SHIELD: 200, XP_BOTTLE: 201, ENCHANTED_BOOK: 202,
+  REDSTONE_DUST: 203, FISHING_ROD: 204, SPLASH_POTION: 205, SADDLE: 206, STRING: 207,
+  RAW_FISH: 208, COOKED_FISH: 209,
 } as const;
 
 export type ToolType = 'pickaxe' | 'axe' | 'shovel' | 'sword' | 'hoe';
@@ -225,6 +229,13 @@ const NEW2: Record<number, BlockDef> = {
   [B.DEEPSLATE_TILES]: D({ name: 'Deepslate Tiles', top: 'deepslate_tiles', side: 'deepslate_tiles', breakTime: 2.4, tool: 'pickaxe' }),
   [B.TINTED_GLASS]: D({ name: 'Tinted Glass', top: 'tinted_glass', side: 'tinted_glass', opaque: false, transparent: true, breakTime: 0.3, drop: null }),
   [B.ENCHANTING_TABLE]: D({ name: 'Enchanting Table', top: 'enchant_top', side: 'enchant_side', bottom: 'obsidian', breakTime: 2.5, tool: 'pickaxe' }),
+  [B.REDSTONE_WIRE]: D({ name: 'Redstone Wire', top: 'redstone_wire', side: 'redstone_wire', solid: false, opaque: false, transparent: true, breakTime: 0.05, drop: IT.REDSTONE_DUST }),
+  [B.REDSTONE_TORCH]: D({ name: 'Redstone Torch', top: 'redstone_torch', side: 'redstone_torch', solid: false, opaque: false, torchLike: true, light: 10, lightColor: [1.0, 0.3, 0.2], breakTime: 0.05, drop: IT.REDSTONE_DUST }),
+  [B.PISTON]: D({ name: 'Piston', top: 'piston_top', side: 'piston_side', bottom: 'piston_side', breakTime: 1.5, tool: 'pickaxe' }),
+  [B.NETHER_PORTAL]: D({ name: 'Nether Portal', top: 'portal', side: 'portal', solid: false, opaque: false, transparent: true, light: 11, lightColor: [0.6, 0.2, 1.0], breakTime: Infinity, drop: null }),
+  [B.NETHERRACK]: D({ name: 'Netherrack', top: 'netherrack', side: 'netherrack', breakTime: 0.5, tool: 'pickaxe' }),
+  [B.SOUL_SAND]: D({ name: 'Soul Sand', top: 'soul_sand', side: 'soul_sand', breakTime: 0.5, tool: 'shovel' }),
+  [B.END_STONE]: D({ name: 'End Stone', top: 'end_stone', side: 'end_stone', breakTime: 2.0, tool: 'pickaxe' }),
 };
 Object.assign(BLOCKS, NEW2);
 
@@ -303,6 +314,13 @@ const NEW_ITEM_DEFS: Record<number, ItemDef> = {
   [IT.SHIELD]: { name: 'Shield', shield: true },
   [IT.XP_BOTTLE]: { name: 'Bottle o’ Enchanting' },
   [IT.ENCHANTED_BOOK]: { name: 'Enchanted Book' },
+  [IT.REDSTONE_DUST]: { name: 'Redstone Dust' },
+  [IT.FISHING_ROD]: { name: 'Fishing Rod' },
+  [IT.SPLASH_POTION]: { name: 'Splash Potion' },
+  [IT.SADDLE]: { name: 'Saddle' },
+  [IT.STRING]: { name: 'String' },
+  [IT.RAW_FISH]: { name: 'Raw Fish', food: 2 },
+  [IT.COOKED_FISH]: { name: 'Cooked Fish', food: 6 },
 };
 Object.assign(ITEMS, NEW_ITEM_DEFS);
 
@@ -325,6 +343,7 @@ export const CREATIVE_BLOCKS: number[] = [
   B.CONCRETE_WHITE, B.CONCRETE_RED, B.CONCRETE_BLUE, B.CONCRETE_BLACK, B.TERRACOTTA, B.TERRACOTTA_RED,
   B.COPPER_BLOCK, B.CUT_COPPER, B.EXPOSED_COPPER, B.WEATHERED_COPPER, B.OXIDIZED_COPPER,
   B.DEEPSLATE, B.COBBLED_DEEPSLATE, B.DEEPSLATE_BRICKS, B.DEEPSLATE_TILES, B.TINTED_GLASS, B.ENCHANTING_TABLE,
+  B.REDSTONE_WIRE, B.REDSTONE_TORCH, B.PISTON, B.NETHER_PORTAL, B.NETHERRACK, B.SOUL_SAND, B.END_STONE,
 ];
 
 export const CREATIVE_ITEMS: number[] = [
@@ -337,4 +356,5 @@ export const CREATIVE_ITEMS: number[] = [
   IT.IRON_HELMET, IT.IRON_CHESTPLATE, IT.IRON_LEGGINGS, IT.IRON_BOOTS,
   IT.DIA_HELMET, IT.DIA_CHESTPLATE, IT.DIA_LEGGINGS, IT.DIA_BOOTS,
   IT.BUCKET, IT.WATER_BUCKET, IT.LAVA_BUCKET, IT.BOW, IT.ARROW, IT.SHIELD, IT.XP_BOTTLE, IT.ENCHANTED_BOOK,
+  IT.REDSTONE_DUST, IT.FISHING_ROD, IT.SPLASH_POTION, IT.SADDLE, IT.STRING, IT.RAW_FISH, IT.COOKED_FISH,
 ];

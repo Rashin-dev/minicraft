@@ -160,6 +160,11 @@ RECIPES.push(
   { out: B.COBBLED_DEEPSLATE, outCount: 4, needs: [[B.DEEPSLATE, 4]] },
   { out: B.TINTED_GLASS, outCount: 4, needs: [[B.GLASS, 4], [IT.COAL, 1]] },
   { out: B.ENCHANTING_TABLE, outCount: 1, needs: [[B.OBSIDIAN, 4], [B.BOOKSHELF, 2], [IT.DIAMOND, 2]] },
+  { out: B.REDSTONE_TORCH, outCount: 2, needs: [[IT.REDSTONE_DUST, 1], [IT.STICK, 1]] },
+  { out: B.PISTON, outCount: 1, needs: [[B.PLANKS, 3], [B.COBBLE, 4], [IT.REDSTONE_DUST, 1]] },
+  { out: B.NETHERRACK, outCount: 4, needs: [[B.COBBLE, 4], [IT.COAL, 1]] },
+  { out: B.END_STONE, outCount: 4, needs: [[B.SANDSTONE, 4], [IT.EMERALD, 1]] },
+  { out: IT.FISHING_ROD, outCount: 1, needs: [[IT.STICK, 3], [IT.STRING, 2]] },
 );
 
 export interface SmeltDef { out: number; time: number; }
@@ -174,6 +179,7 @@ export const SMELT: Record<number, SmeltDef> = {
   [B.COPPER_BLOCK]: { out: B.CUT_COPPER, time: 3 },
   [IT.PORKCHOP]: { out: IT.COOKED_PORKCHOP, time: 3 },
   [IT.BEEF]: { out: IT.COOKED_STEAK, time: 3 },
+  [IT.RAW_FISH]: { out: IT.COOKED_FISH, time: 3 },
 };
 // burn time in seconds per item
 export const FUEL: Record<number, number> = {
@@ -249,6 +255,13 @@ function drawItemIcon(g: CanvasRenderingContext2D, id: number) {
     case IT.PORKCHOP: P(5, 6, 7, 7, '#e8908a'); P(6, 7, 4, 3, '#f4b8b2'); P(4, 12, 2, 2, '#f4e8d8'); break;
     case IT.BEEF: P(5, 6, 7, 7, '#8a4a32'); P(6, 7, 4, 3, '#b06a48'); break;
     case IT.GUNPOWDER: P(5, 6, 6, 6, '#5a5a62'); P(7, 4, 2, 2, '#6a6a72'); P(9, 10, 2, 2, '#4a4a52'); break;
+    case IT.REDSTONE_DUST: P(5, 6, 6, 6, '#c03028'); P(6, 5, 3, 2, '#ff6050'); break;
+    case IT.FISHING_ROD: P(3, 3, 10, 1, '#8a6a3e'); P(12, 3, 1, 4, '#cccccc'); break;
+    case IT.SPLASH_POTION: P(6, 2, 4, 2, '#6a4a2a'); P(5, 4, 6, 8, '#9a5ada'); P(6, 5, 4, 4, '#c0a0ff'); break;
+    case IT.SADDLE: P(4, 6, 8, 5, '#7a4a28'); P(5, 5, 6, 2, '#9a6238'); break;
+    case IT.STRING: P(4, 3, 2, 10, '#e0e0e0'); P(8, 4, 2, 9, '#d0d0d0'); P(4, 7, 6, 1, '#f0f0f0'); break;
+    case IT.RAW_FISH: P(2, 6, 11, 5, '#8fb8c8'); P(1, 8, 2, 2, '#6a93a5'); P(12, 7, 3, 3, '#c8e0ea'); break;
+    case IT.COOKED_FISH: P(2, 6, 11, 5, '#b07a4a'); P(1, 8, 2, 2, '#8a5a34'); P(12, 7, 3, 3, '#d8a878'); break;
     case IT.SHIELD: P(4, 3, 8, 11, '#8a8a9a'); P(5, 4, 6, 9, '#b0b0c0'); P(6, 5, 4, 3, '#d0d0e0'); P(7, 9, 2, 2, '#6a6a7a'); break;
     case IT.XP_BOTTLE: P(6, 2, 4, 2, '#6a9a3a'); P(5, 4, 6, 8, '#7a3aba'); P(6, 5, 4, 6, '#9a5adA'); P(7, 6, 2, 2, '#c0a0ff'); break;
     case IT.ENCHANTED_BOOK: P(3, 4, 10, 10, '#8a4a3a'); P(4, 5, 8, 8, '#a85a4a'); P(5, 6, 6, 2, '#ffd0a0'); P(6, 8, 4, 4, '#c0a0ff'); break;

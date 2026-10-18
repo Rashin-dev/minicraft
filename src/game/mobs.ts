@@ -6,8 +6,8 @@ import { B, IT } from './blocks';
 import { sounds } from './sounds';
 import { isOpaque } from './blocks';
 
-export type MobKind = 'pig' | 'sheep' | 'cow' | 'chicken' | 'zombie' | 'skeleton' | 'creeper' | 'villager';
-export const HOSTILE: MobKind[] = ['zombie', 'skeleton', 'creeper'];
+export type MobKind = 'pig' | 'sheep' | 'cow' | 'chicken' | 'zombie' | 'skeleton' | 'creeper' | 'villager' | 'spider' | 'enderman';
+export const HOSTILE: MobKind[] = ['zombie', 'skeleton', 'creeper', 'spider', 'enderman'];
 
 export interface MobCallbacks {
   damagePlayer: (amount: number, sourcePos: THREE.Vector3) => void;
@@ -27,6 +27,8 @@ const STYLE: Record<MobKind, { body: number; head: number; leg: number; scale: n
   skeleton: { body: 0xc8c8c8, head: 0xdedede, leg: 0xbcbcbc, scale: 0.95, hp: 10, sound: sounds.skeleton },
   creeper: { body: 0x4fae4f, head: 0x55b957, leg: 0x3d8c3d, scale: 1.0, hp: 10, sound: () => {} },
   villager: { body: 0x6b4a8a, head: 0xd8b89a, leg: 0x3a2a4a, scale: 1.0, hp: 14, sound: () => {} },
+  spider: { body: 0x3a3230, head: 0x4a403c, leg: 0x2a2422, scale: 1.0, hp: 10, sound: () => {} },
+  enderman: { body: 0x14141a, head: 0x1a1a22, leg: 0x0c0c10, scale: 1.15, hp: 20, sound: () => {} },
 };
 
 export class Mob {
@@ -54,6 +56,7 @@ export class Mob {
   loveTimer = 0;
   private growTimer = 0;
   trades: { inId: number; inCount: number; outId: number; outCount: number; done: number }[] = [];
+  tamed = false;
 
   constructor(kind: MobKind, x: number, y: number, z: number, baby = false) {
     this.kind = kind;
@@ -226,8 +229,16 @@ export class Mob {
       }
     }
 
+    // tamed followers (saddle)
+    if (this.tamed && this.kind === 'pig') {
+      if (distToPlayer > 3) {
+        this.targetYaw = Math.atan2(playerPos.x - p.x, playerPos.z - p.z) + Math.PI;
+        speed = Math.min(2.6, 1.4 + distToPlayer * 0.15);
+        this.moving = true;
+      } else this.moving = false;
+    }
     // wander (passive always; hostile when idle)
-    if (!this.hostile || (!this.moving && this.fuse < 0)) {
+    if (!this.tamed && (!this.hostile || (!this.moving && this.fuse < 0))) {
       this.wanderTimer -= dt;
       this.soundTimer -= 0;
       if (this.wanderTimer < 0) {

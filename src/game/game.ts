@@ -85,6 +85,12 @@ export class Game {
   private wasJump = false;
 
   // chunks (worker)
+  dimension: 'overworld' | 'nether' = 'overworld';
+  private worlds: { overworld: World | null; nether: World | null } = { overworld: null, nether: null };
+  private overworldReturn = new THREE.Vector3();
+  private portalCooldown = 0;
+  private portalTimer = 0;
+  private fishing: { t: number } | null = null;
   private worker: Worker;
   private chunkMeshes = new Map<string, ChunkMeshes>();
   private pending = new Set<string>();
@@ -213,7 +219,8 @@ export class Game {
     this.worldName = name;
     this.events = events;
     this.mode = saved?.mode ?? mode;
-    this.world = new World(seed);
+    this.world = new World(seed, 'overworld');
+    this.worlds.overworld = this.world;
     this.inventory.onChange = () => this.onHotbarChange();
     let savedWeather: WeatherKind | null = null;
 
@@ -302,7 +309,7 @@ export class Game {
     // worker
     this.worker = new Worker(new URL('./worldWorker.ts', import.meta.url), { type: 'module' });
     this.worker.onmessage = (e: MessageEvent) => this.onWorkerMessage(e.data);
-    this.worker.postMessage({ type: 'init', seed, diffs: [...this.world.diffs.entries()] });
+    this.worker.postMessage({ type: 'init', seed, dim: 'overworld', diffs: [...this.world.diffs.entries()] });
 
     this.controls = new Controls(this.renderer.domElement);
     this.controls.onPause = () => this.events.onPause();
@@ -553,6 +560,15 @@ export class Game {
       if (hit && hit.id === B.ENCHANTING_TABLE) { if (this.tryEnchant()) return; }
     }
     const held = this.heldItem();
+    if (held === IT.FLINT && hit && hit.id === B.OBSIDIAN) { this.tryLightPortal(hit.x, hit.y, hit.z, hit.nx, hit.ny, hit.nz); return; }
+    if (held === IT.FISHING_ROD) { this.castFishing(); return; }
+    if (held === IT.SPLASH_POTION) {
+      this.health = Math.min(20, this.health + 6);
+      if (this.mode === 'survival') this.inventory.consumeHeld(1);
+      this.particles.burst(this.pos.clone().add(new THREE.Vector3(0, 1, 0)), 0xcc66ff, 16);
+      sounds.pop(); this.events.onToast('Healed!'); this.swing(); return;
+    }
+    if (held === IT.SADDLE && this.trySaddle()) return;
     const food = itemDef(held)?.food;
     if (food && this.mode === 'survival' && this.hunger < 20 && this.eatCd <= 0) {
       this.hunger = Math.min(20, this.hunger + food);
@@ -784,6 +800,23 @@ export class Game {
     }
 
     if (this.pos.y < -10) this.respawn();
+
+    this.portalCooldown = Math.max(0, this.portalCooldown - dt);
+    const feet = this.world.getBlock(Math.floor(this.pos.x), Math.floor(this.pos.y + 0.2), Math.floor(this.pos.z));
+    if (feet === B.NETHER_PORTAL && this.portalCooldown <= 0) {
+      this.portalTimer += dt;
+      if (this.portalTimer > 1.2) { this.portalTimer = 0; this.switchDimension(this.dimension === 'overworld' ? 'nether' : 'overworld'); }
+    } else this.portalTimer = 0;
+    if (this.fishing) {
+      this.fishing.t -= dt;
+      if (this.fishing.t <= 0) {
+        this.fishing = null;
+        this.inventory.add(IT.RAW_FISH, 1);
+        if (this.mode === 'survival') this.addXP(1);
+        this.events.onToast('You caught a fish!');
+        sounds.pop();
+      }
+    }
 
     if (this.mode === 'survival') {
       if (inLava) { this.lavaTimer -= dt; if (this.lavaTimer <= 0) { this.lavaTimer = 0.4; this.damage(3); } }
@@ -1312,7 +1345,7 @@ export class Game {
   }
 
   private mobDrop(kind: MobKind): number {
-    const map: Partial<Record<MobKind, number>> = { pig: IT.PORKCHOP, cow: IT.BEEF, sheep: B.WOOL_WHITE, chicken: IT.FEATHER, zombie: Math.random() < 0.25 ? IT.IRON_CHUNK : 0, skeleton: IT.ARROW, creeper: IT.GUNPOWDER, villager: IT.EMERALD };
+    const map: Partial<Record<MobKind, number>> = { pig: IT.PORKCHOP, cow: IT.BEEF, sheep: B.WOOL_WHITE, chicken: IT.FEATHER, zombie: Math.random() < 0.25 ? IT.IRON_CHUNK : 0, skeleton: IT.ARROW, creeper: IT.GUNPOWDER, villager: IT.EMERALD, spider: IT.STRING, enderman: IT.EMERALD };
     return map[kind] ?? 0;
   }
 
@@ -1529,6 +1562,113 @@ export class Game {
     this.vel.set(0, 0, 0);
   }
 
+  private tryLightPortal(ox: number, oy: number, oz: number, nx: number, ny: number, nz: number) {
+    const sx = ox + nx, sy = oy + ny, sz = oz + nz;
+    if (this.world.getBlock(sx, sy, sz) !== 0) return;
+    const cells: [number, number, number][] = [];
+    const seen = new Set<string>();
+    const q: [number, number, number][] = [[sx, sy, sz]];
+    while (q.length) {
+      const [x, y, z] = q.pop()!;
+      const k = x + ',' + y + ',' + z;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const id = this.world.getBlock(x, y, z);
+      if (id === B.NETHER_PORTAL) continue;
+      if (id !== 0 || cells.length >= 18) return;
+      cells.push([x, y, z]);
+      q.push([x + 1, y, z], [x - 1, y, z], [x, y + 1, z], [x, y - 1, z], [x, y, z + 1], [x, y, z - 1]);
+    }
+    if (cells.length < 4) return;
+    for (const [x, y, z] of cells) {
+      for (const d of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+        const a = x + d[0], b = y + d[1], c = z + d[2];
+        if (seen.has(a + ',' + b + ',' + c)) continue;
+        if (this.world.getBlock(a, b, c) !== B.OBSIDIAN) return;
+      }
+    }
+    for (const [x, y, z] of cells) this.setBlockNet(x, y, z, B.NETHER_PORTAL);
+    this.events.onToast('Portal lit!');
+    sounds.placeBlock(); this.swing();
+  }
+
+  private castFishing() {
+    const dir = new THREE.Vector3(); this.camera.getWorldDirection(dir);
+    const origin = this.camera.position;
+    let water = false;
+    for (let t = 1; t < 9; t += 0.5) {
+      const p = origin.clone().addScaledVector(dir, t);
+      const id = this.world.getBlock(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z));
+      if (id === B.WATER) { water = true; break; }
+      if (id !== 0 && !blockDef(id)?.cross && !blockDef(id)?.torchLike) break;
+    }
+    if (!water) { this.events.onToast('Cast into water to fish'); return; }
+    this.fishing = { t: 2 + Math.random() * 2.5 };
+    this.events.onToast('Line cast...');
+    this.swing();
+  }
+
+  private trySaddle(): boolean {
+    for (const m of this.mobs) {
+      if (m.kind !== 'pig') continue;
+      if (m.group.position.distanceTo(this.pos) < 4.5) {
+        m.tamed = true;
+        if (this.mode === 'survival') this.inventory.consumeHeld(1);
+        this.particles.burst(m.group.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xffcc44, 10);
+        this.events.onToast('Pig tamed! It follows you now.');
+        this.swing(); return true;
+      }
+    }
+    return false;
+  }
+
+  switchDimension(to: 'overworld' | 'nether') {
+    if (to === this.dimension) return;
+    if (to === 'nether') this.overworldReturn.copy(this.pos);
+    const current = this.world;
+    this.worlds[this.dimension] = current;
+    let w = this.worlds[to];
+    if (!w) { w = new World((this.worlds.overworld ?? this.world).seed + (to === 'nether' ? 1 : 0), to); this.worlds[to] = w; }
+    this.world = w;
+    this.dimension = to;
+    for (const [, m] of this.chunkMeshes) this.disposeChunkMeshes(m);
+    this.chunkMeshes.clear();
+    this.pending.clear();
+    this.worker.terminate();
+    this.worker = new Worker(new URL('./worldWorker.ts', import.meta.url), { type: 'module' });
+    this.worker.onmessage = (e: MessageEvent) => this.onWorkerMessage(e.data);
+    this.worker.postMessage({ type: 'init', seed: w.seed, dim: to, diffs: [...w.diffs.entries()] });
+    for (const m of this.mobs) this.scene.remove(m.group);
+    this.mobs.length = 0;
+    const tx = Math.floor(this.pos.x), tz = Math.floor(this.pos.z);
+    if (to === 'nether') {
+      this.world.setBlock(tx, WORLD_H - 2, tz, 0, false);
+      const gy = this.world.groundYBelow(tx, tz, 44);
+      const px = tx + 2;
+      this.world.setBlock(px, gy + 2, tz, 0, false);
+      this.world.setBlock(px, gy + 2, tz, B.NETHER_PORTAL, false);
+      this.world.setBlock(px, gy + 3, tz, 0, false);
+      this.world.setBlock(px, gy + 3, tz, B.NETHER_PORTAL, false);
+      this.pos.set(tx + 4.5, gy + 2, tz + 0.5);
+      const kinds: MobKind[] = ['zombie', 'skeleton', 'spider', 'enderman'];
+      for (let i = 0; i < 6; i++) {
+        const mx = tx + (Math.random() - 0.5) * 40, mz = tz + (Math.random() - 0.5) * 40;
+        this.world.setBlock(Math.floor(mx), WORLD_H - 2, Math.floor(mz), 0, false);
+        const my = this.world.groundYBelow(Math.floor(mx), Math.floor(mz), 44);
+        const mob = new Mob(kinds[i % kinds.length], mx, my + 1, mz);
+        this.mobs.push(mob); this.scene.add(mob.group);
+      }
+      this.events.onToast('Welcome to the Nether');
+    } else {
+      this.pos.copy(this.overworldReturn);
+      this.spawnInitialMobs();
+      this.events.onToast('Back to the Overworld');
+    }
+    this.vel.set(0, 0, 0);
+    this.portalCooldown = 3;
+    this.save();
+  }
+
   addWaypoint(name: string, color: string) {
     this.waypoints.push({ name, x: Math.floor(this.pos.x), y: Math.floor(this.pos.y), z: Math.floor(this.pos.z), color });
     this.save();
@@ -1588,10 +1728,12 @@ export class Game {
     saveWorld({
       v: 3,
       name: this.worldName,
-      seed: this.world.seed,
+      seed: (this.worlds.overworld ?? this.world).seed,
       mode: this.mode,
-      diffs: Object.fromEntries(this.world.diffs),
-      player: { x: this.pos.x, y: this.pos.y, z: this.pos.z, yaw: this.yaw, pitch: this.pitch },
+      diffs: Object.fromEntries((this.worlds.overworld ?? this.world).diffs),
+      player: this.dimension === 'nether'
+        ? { x: this.overworldReturn.x, y: this.overworldReturn.y, z: this.overworldReturn.z, yaw: this.yaw, pitch: this.pitch }
+        : { x: this.pos.x, y: this.pos.y, z: this.pos.z, yaw: this.yaw, pitch: this.pitch },
       spawn: { ...this.spawnPoint },
       inventory: this.mode === 'survival' ? this.inventory.serialize() : null,
       armor: this.inventory.serializeArmor(),

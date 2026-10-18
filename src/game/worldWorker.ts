@@ -1,16 +1,17 @@
 // World worker: terrain generation + lighting + meshing off the main thread
 import { B } from './blocks';
-import { CHUNK, WORLD_H, generateChunk } from './terrain';
+import { CHUNK, WORLD_H, generateChunk, generateNetherChunk } from './terrain';
 import { computeLight, LPAD } from './lighting';
 import { meshChunk } from './mesher';
 import { TILES, ATLAS_COLS, ATLAS_ROWS, TILE_SIZE } from './atlas';
 
-export interface WorkerInit { type: 'init'; seed: number; diffs: [string, number][]; }
+export interface WorkerInit { type: 'init'; seed: number; dim?: 'overworld' | 'nether'; diffs: [string, number][]; }
 export interface WorkerMeshReq { type: 'mesh'; cx: number; cz: number; }
 export interface WorkerEditsReq { type: 'edits'; edits: [number, number, number, number][]; }
 
 const chunks = new Map<string, Uint8Array>();
 let seed = 0;
+let dim: 'overworld' | 'nether' = 'overworld';
 const diffs = new Map<string, number>();
 
 function key(cx: number, cz: number) { return cx + ',' + cz; }
@@ -18,7 +19,7 @@ function key(cx: number, cz: number) { return cx + ',' + cz; }
 function getChunk(cx: number, cz: number): Uint8Array {
   const k = key(cx, cz);
   let c = chunks.get(k);
-  if (!c) { c = generateChunk(seed, cx, cz); chunks.set(k, c); }
+  if (!c) { c = dim === 'nether' ? generateNetherChunk(seed, cx, cz) : generateChunk(seed, cx, cz); chunks.set(k, c); }
   return c;
 }
 
@@ -78,6 +79,8 @@ self.onmessage = (e: MessageEvent<WorkerInit | WorkerMeshReq | WorkerEditsReq>) 
   const msg = e.data;
   if (msg.type === 'init') {
     seed = msg.seed;
+    dim = msg.dim ?? 'overworld';
+    chunks.clear();
     diffs.clear();
     for (const [k, v] of msg.diffs) diffs.set(k, v);
   } else if (msg.type === 'mesh') {

@@ -55,6 +55,35 @@ function isCave(x: number, y: number, z: number, seed: number, h: number): boole
   return false;
 }
 
+export function generateNetherChunk(seed: number, cx: number, cz: number): Uint8Array {
+  const data = new Uint8Array(CHUNK * WORLD_H * CHUNK);
+  const set = (lx: number, y: number, lz: number, id: number) => {
+    if (lx >= 0 && lx < CHUNK && lz >= 0 && lz < CHUNK && y >= 0 && y < WORLD_H) data[(y * CHUNK + lz) * CHUNK + lx] = id;
+  };
+  const CEIL = 46;
+  for (let lz = 0; lz < CHUNK; lz++) for (let lx = 0; lx < CHUNK; lx++) {
+    const x = cx * CHUNK + lx, z = cz * CHUNK + lz;
+    const h = Math.max(12, Math.min(34, 21 + Math.floor((fbm2(x * 0.025, z * 0.025, seed + 911, 3) - 0.5) * 16)));
+    for (let y = 0; y <= h; y++) {
+      if (y <= 1) { set(lx, y, lz, B.BEDROCK); continue; }
+      const n = fbm3(x * 0.05, y * 0.09, z * 0.05, seed + 913, 2);
+      if (n > 0.62 && y > 2 && y < h - 2) { set(lx, y, lz, 0); continue; }
+      let id: number = B.NETHERRACK;
+      if (n < 0.34) id = B.SOUL_SAND;
+      if (y === h && hash3(x, y, z, seed + 917) > 0.8) id = B.SOUL_SAND;
+      set(lx, y, lz, id);
+    }
+    for (let y = h + 1; y <= 10; y++) set(lx, y, lz, B.LAVA);
+    for (let y = CEIL; y < WORLD_H; y++) {
+      if (y < CEIL + 4) set(lx, y, lz, B.NETHERRACK);
+      else if (y === CEIL + 4) set(lx, y, lz, B.BEDROCK);
+    }
+    if (hash3(x, CEIL - 1, z, seed + 922) > 0.965) set(lx, CEIL - 1, lz, B.GLOWSTONE);
+    if (hash3(x, CEIL - 2, z, seed + 923) > 0.99) set(lx, CEIL - 2, lz, B.GLOWSTONE);
+  }
+  return data;
+}
+
 export function generateChunk(seed: number, cx: number, cz: number): Uint8Array {
   const data = new Uint8Array(CHUNK * WORLD_H * CHUNK);
   const set = (lx: number, y: number, lz: number, id: number) => {
