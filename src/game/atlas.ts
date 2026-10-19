@@ -1,7 +1,7 @@
 // Procedurally generated 16x16 texture atlas (pixel-art, worker-safe: no DOM at import)
 export const TILE_SIZE = 16;
 export const ATLAS_COLS = 8;
-export const ATLAS_ROWS = 16;
+export const ATLAS_ROWS = 17;
 
 import { mulberry32 } from './noise';
 
@@ -448,6 +448,7 @@ tile('tinted_glass', (c, x, y) => { c.clearRect(x,y,16,16); c.fillStyle='rgba(20
 tile('enchant_top', (c, x, y) => { speckle(c, x, y, [74, 62, 102], 16, [[60,50,88],[90,76,118]], 10); c.fillStyle='rgb(180,60,60)'; c.fillRect(x+6,y+6,4,4); });
 tile('enchant_side', (c, x, y) => { tileDefs[TILES['obsidian']].draw(c,x,y); c.fillStyle='rgb(110,60,160)'; c.fillRect(x+2,y+2,12,12); c.fillStyle='rgb(180,140,255)'; c.fillRect(x+4,y+4,8,8); });
 tile('redstone_wire', (c, x, y) => { c.clearRect(x,y,16,16); noiseFill(c,x,y,[60,20,16],18); c.fillStyle='rgb(220,40,30)'; c.fillRect(x+7,y,2,16); c.fillRect(x,y+7,16,2); c.fillStyle='rgb(255,120,100)'; c.fillRect(x+7,y+4,1,8); });
+tile('redstone_wire_lit', (c, x, y) => { c.clearRect(x,y,16,16); noiseFill(c,x,y,[90,26,20],18); c.fillStyle='rgb(255,60,40)'; c.fillRect(x+7,y,2,16); c.fillRect(x,y+7,16,2); c.fillStyle='rgb(255,170,140)'; c.fillRect(x+7,y+2,1,12); });
 tile('redstone_torch', (c, x, y) => { c.clearRect(x,y,16,16); c.fillStyle='rgb(120,88,50)'; c.fillRect(x+7,y+6,2,10); c.fillStyle='rgb(255,60,40)'; c.fillRect(x+6,y+2,4,4); c.fillStyle='rgb(255,160,140)'; c.fillRect(x+7,y+3,2,2); });
 tile('piston_side', (c, x, y) => { speckle(c,x,y,[150,140,120],16,[[130,120,100],[170,160,140]],10); c.fillStyle='rgb(110,90,60)'; c.fillRect(x,y,16,4); });
 tile('piston_top', (c, x, y) => { speckle(c,x,y,[170,150,120],14,[[150,130,100],[190,170,140]],10); c.strokeStyle='rgb(110,90,60)'; c.strokeRect(x+0.5,y+0.5,15,15); });

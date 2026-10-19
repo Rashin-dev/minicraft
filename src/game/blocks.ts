@@ -36,7 +36,7 @@ export const B = {
   DEEPSLATE: 165, COBBLED_DEEPSLATE: 166, DEEPSLATE_BRICKS: 167, DEEPSLATE_TILES: 168,
   TINTED_GLASS: 169, ENCHANTING_TABLE: 170,
   REDSTONE_WIRE: 171, REDSTONE_TORCH: 172, PISTON: 173, NETHER_PORTAL: 174,
-  NETHERRACK: 175, SOUL_SAND: 176, END_STONE: 177,
+  NETHERRACK: 175, SOUL_SAND: 176, END_STONE: 177, REDSTONE_WIRE_LIT: 198,
 } as const;
 
 // Non-block items start at 100 (new items at 200+ to avoid B overlap)
@@ -253,6 +253,7 @@ const NEW2: Record<number, BlockDef> = {
   [B.TINTED_GLASS]: D({ name: 'Tinted Glass', top: 'tinted_glass', side: 'tinted_glass', opaque: false, transparent: true, breakTime: 0.3, drop: null }),
   [B.ENCHANTING_TABLE]: D({ name: 'Enchanting Table', top: 'enchant_top', side: 'enchant_side', bottom: 'obsidian', breakTime: 2.5, tool: 'pickaxe' }),
   [B.REDSTONE_WIRE]: D({ name: 'Redstone Wire', top: 'redstone_wire', side: 'redstone_wire', solid: false, opaque: false, transparent: true, breakTime: 0.05, drop: IT.REDSTONE_DUST }),
+  [B.REDSTONE_WIRE_LIT]: D({ name: 'Redstone Wire', top: 'redstone_wire_lit', side: 'redstone_wire_lit', solid: false, opaque: false, transparent: true, light: 7, lightColor: [0.9, 0.2, 0.15], breakTime: 0.05, drop: IT.REDSTONE_DUST }),
   [B.REDSTONE_TORCH]: D({ name: 'Redstone Torch', top: 'redstone_torch', side: 'redstone_torch', solid: false, opaque: false, torchLike: true, light: 10, lightColor: [1.0, 0.3, 0.2], breakTime: 0.05, drop: IT.REDSTONE_DUST }),
   [B.PISTON]: D({ name: 'Piston', top: 'piston_top', side: 'piston_side', bottom: 'piston_side', breakTime: 1.5, tool: 'pickaxe' }),
   [B.NETHER_PORTAL]: D({ name: 'Nether Portal', top: 'portal', side: 'portal', solid: false, opaque: false, transparent: true, light: 11, lightColor: [0.6, 0.2, 1.0], breakTime: Infinity, drop: null }),
@@ -369,7 +370,7 @@ export const CREATIVE_BLOCKS: number[] = [
   B.CONCRETE_ORANGE, B.CONCRETE_MAGENTA, B.CONCRETE_LIGHT_BLUE, B.CONCRETE_LIME, B.CONCRETE_PINK, B.CONCRETE_GRAY, B.CONCRETE_LIGHT_GRAY, B.CONCRETE_CYAN, B.CONCRETE_PURPLE, B.CONCRETE_BROWN,
   B.COPPER_BLOCK, B.CUT_COPPER, B.EXPOSED_COPPER, B.WEATHERED_COPPER, B.OXIDIZED_COPPER,
   B.DEEPSLATE, B.COBBLED_DEEPSLATE, B.DEEPSLATE_BRICKS, B.DEEPSLATE_TILES, B.TINTED_GLASS, B.ENCHANTING_TABLE,
-  B.REDSTONE_WIRE, B.REDSTONE_TORCH, B.PISTON, B.NETHER_PORTAL, B.NETHERRACK, B.SOUL_SAND, B.END_STONE,
+  B.REDSTONE_WIRE, B.REDSTONE_WIRE_LIT, B.REDSTONE_TORCH, B.PISTON, B.NETHER_PORTAL, B.NETHERRACK, B.SOUL_SAND, B.END_STONE,
 ];
 
 export const CREATIVE_ITEMS: number[] = [

@@ -91,6 +91,9 @@ export class Game {
   private portalCooldown = 0;
   private portalTimer = 0;
   private fishing: { t: number } | null = null;
+  private redstoneCells = new Set<string>();
+  private redstoneTimer = 0;
+  private redstoneDirty = false;
   private worker: Worker;
   private chunkMeshes = new Map<string, ChunkMeshes>();
   private pending = new Set<string>();
@@ -666,6 +669,10 @@ export class Game {
   private setBlockNet(x: number, y: number, z: number, id: number) {
     this.world.setBlock(x, y, z, id);
     this.editQueue.push([x, y, z, id]);
+    const k = x + ',' + y + ',' + z;
+    if (id === B.REDSTONE_WIRE || id === B.REDSTONE_WIRE_LIT || id === B.REDSTONE_TORCH) this.redstoneCells.add(k);
+    else this.redstoneCells.delete(k);
+    this.redstoneDirty = true;
   }
 
   private trySleep(bx: number, by: number, bz: number) {
@@ -808,6 +815,11 @@ export class Game {
       this.portalTimer += dt;
       if (this.portalTimer > 1.2) { this.portalTimer = 0; this.switchDimension(this.dimension === 'overworld' ? 'nether' : 'overworld'); }
     } else this.portalTimer = 0;
+    this.redstoneTimer -= dt;
+    if (this.redstoneTimer <= 0 && this.redstoneDirty && this.redstoneCells.size > 0) {
+      this.redstoneTimer = 0.4;
+      this.tickRedstone();
+    }
     if (this.fishing) {
       this.fishing.t -= dt;
       if (this.fishing.t <= 0) {
@@ -1607,6 +1619,40 @@ export class Game {
     this.fishing = { t: 2 + Math.random() * 2.5 };
     this.events.onToast('Line cast...');
     this.swing();
+  }
+
+  private tickRedstone() {
+    this.redstoneDirty = false;
+    const power = new Map<string, number>();
+    const q: [number, number, number, number][] = [];
+    for (const k of this.redstoneCells) {
+      const [x, y, z] = k.split(',').map(Number);
+      if (this.world.getBlock(x, y, z) === B.REDSTONE_TORCH) { power.set(k, 15); q.push([x, y, z, 15]); }
+    }
+    const isWire = (id: number) => id === B.REDSTONE_WIRE || id === B.REDSTONE_WIRE_LIT;
+    while (q.length) {
+      const [x, y, z, p] = q.shift()!;
+      if (p <= 1) continue;
+      for (const d of [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [0, -1, 0]]) {
+        const nk = (x + d[0]) + ',' + (y + d[1]) + ',' + (z + d[2]);
+        if (!this.redstoneCells.has(nk)) continue;
+        if ((power.get(nk) ?? 0) >= p - 1) continue;
+        const id = this.world.getBlock(x + d[0], y + d[1], z + d[2]);
+        if (!isWire(id)) continue;
+        power.set(nk, p - 1);
+        q.push([x + d[0], y + d[1], z + d[2], p - 1]);
+      }
+    }
+    for (const k of this.redstoneCells) {
+      const [x, y, z] = k.split(',').map(Number);
+      const cur = this.world.getBlock(x, y, z);
+      if (!isWire(cur)) continue;
+      const want = (power.get(k) ?? 0) > 0 ? B.REDSTONE_WIRE_LIT : B.REDSTONE_WIRE;
+      if (cur !== want) {
+        this.world.setBlock(x, y, z, want);
+        this.editQueue.push([x, y, z, want]);
+      }
+    }
   }
 
   private tryShear(): boolean {
